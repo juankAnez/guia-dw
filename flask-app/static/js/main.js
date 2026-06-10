@@ -2,9 +2,9 @@
 const phases = [
   {
     id: 'fase-0',
-    number: 0,
+    number: 1,
     title: 'Preparación del Entorno',
-    icon: '⚙️',
+    icon: 'fa-tools',
     steps: [
       {
         title: 'Instalar Node.js',
@@ -39,9 +39,10 @@ const phases = [
   },
   {
     id: 'fase-1',
-    number: 1,
+    number: 2,
     title: 'Creación del Backend',
-    icon: '🖥️',
+    icon: 'fa-server',
+    hasGenerator: true,
     steps: [
       {
         title: 'Crear proyecto',
@@ -148,9 +149,9 @@ app.listen(PORT, () => {
   },
   {
     id: 'fase-2',
-    number: 2,
+    number: 3,
     title: 'Creación de la Base de Datos',
-    icon: '🗄️',
+    icon: 'fa-database',
     steps: [
       {
         title: 'Crear la base de datos',
@@ -182,9 +183,9 @@ app.listen(PORT, () => {
   },
   {
     id: 'fase-3',
-    number: 3,
+    number: 4,
     title: 'Modelo',
-    icon: '📦',
+    icon: 'fa-cube',
     steps: [
       {
         title: '¿Qué es el modelo?',
@@ -227,9 +228,9 @@ module.exports = ProductoModel;`
   },
   {
     id: 'fase-4',
-    number: 4,
+    number: 5,
     title: 'Controlador',
-    icon: '🎮',
+    icon: 'fa-cog',
     steps: [
       {
         title: '¿Qué es el controlador?',
@@ -304,9 +305,9 @@ module.exports = ProductoController;`
   },
   {
     id: 'fase-5',
-    number: 5,
+    number: 6,
     title: 'Rutas',
-    icon: '🛣️',
+    icon: 'fa-route',
     steps: [
       {
         title: '¿Qué son las rutas?',
@@ -339,9 +340,9 @@ module.exports = router;`
   },
   {
     id: 'fase-6',
-    number: 6,
+    number: 7,
     title: 'Pruebas con Postman',
-    icon: '🔌',
+    icon: 'fa-plug',
     steps: [
       {
         title: 'CREAR (POST)',
@@ -400,9 +401,9 @@ module.exports = router;`
   },
   {
     id: 'fase-7',
-    number: 7,
+    number: 8,
     title: 'Frontend Angular',
-    icon: '🎨',
+    icon: 'fa-paint-brush',
     steps: [
       {
         title: 'Crear proyecto Angular',
@@ -502,9 +503,9 @@ export const routes: Routes = [
   },
   {
     id: 'fase-8',
-    number: 8,
+    number: 9,
     title: 'CRUD Completo en Angular',
-    icon: '🔄',
+    icon: 'fa-sync',
     steps: [
       {
         title: 'Generar módulo y componentes',
@@ -750,9 +751,9 @@ export class ProductoForm implements OnInit {
   },
   {
     id: 'fase-9',
-    number: 9,
+    number: 10,
     title: 'Conexión Total',
-    icon: '🔗',
+    icon: 'fa-link',
     steps: [
       {
         title: 'Diagrama del flujo',
@@ -781,9 +782,9 @@ export class ProductoForm implements OnInit {
   },
   {
     id: 'fase-10',
-    number: 10,
+    number: 11,
     title: 'Checklist del Parcial',
-    icon: '✅',
+    icon: 'fa-check-circle',
     isChecklist: true,
     items: [
       { id: 'chk-backend', text: 'Backend inicia sin errores (npm run dev)' },
@@ -805,48 +806,123 @@ export class ProductoForm implements OnInit {
   }
 ];
 
-// ===== RENDER ENGINE =====
-function renderPhases() {
-  const container = document.getElementById('phases-container');
+// ===== SIDEBAR GROUPS =====
+const sidebarGroups = [
+  { name: 'Backend', icon: 'fa-server', phases: [0, 1, 2, 3, 4, 5, 6] },
+  { name: 'Frontend', icon: 'fa-paint-brush', phases: [7, 8, 9, 10] }
+];
+
+// ===== NAVIGATION =====
+function showDashboard() {
+  document.getElementById('dashboard-view').style.display = 'block';
+  document.getElementById('phase-view').style.display = 'none';
+  document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+  const dashLink = document.querySelector('.sidebar-dashboard a');
+  if (dashLink) dashLink.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showPhase(index) {
+  document.getElementById('dashboard-view').style.display = 'none';
+  const phaseView = document.getElementById('phase-view');
+  phaseView.style.display = 'block';
+
+  const phase = phases[index];
+  phaseView.innerHTML = buildPhaseCard(phase);
+
+  document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+  const link = document.querySelector(`.sidebar-nav a[data-phase="${index}"]`);
+  if (link) link.classList.add('active');
+
+  phaseView.querySelectorAll('.phase').forEach(p => p.classList.add('open'));
+  highlightBlocks(phaseView);
+
+  if (phase.hasGenerator) {
+    renderEntityGeneratorInline();
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ===== SIDEBAR RENDER =====
+function renderSidebar() {
   const navList = document.getElementById('sidebar-nav');
 
-  phases.forEach((phase, index) => {
-    // Sidebar item
-    const li = document.createElement('li');
-    const a = document.createElement('a');
-    a.href = `#${phase.id}`;
-    a.innerHTML = `<span class="phase-badge">${phase.number}</span> ${phase.title}`;
-    li.appendChild(a);
-    navList.appendChild(li);
+  sidebarGroups.forEach((group, gi) => {
+    const groupLi = document.createElement('li');
+    groupLi.className = 'sidebar-group';
 
-    // Phase card
-    const phaseEl = document.createElement('div');
-    phaseEl.className = 'phase';
-    phaseEl.id = phase.id;
+    const header = document.createElement('div');
+    header.className = 'sidebar-group-header';
+    header.innerHTML = `<i class="fas ${group.icon} group-icon"></i> ${group.name} <i class="fas fa-chevron-right group-toggle"></i>`;
+    header.onclick = function() { toggleSidebarGroup(this); };
+    groupLi.appendChild(header);
 
-    let headerHtml = `
-      <div class="phase-header" onclick="togglePhase(this.parentElement)">
-        <span class="phase-number">${phase.icon}</span>
-        <span class="phase-title">FASE ${phase.number} — ${phase.title}</span>
-        <span class="phase-toggle">▼</span>
-      </div>
-      <div class="phase-body">
-        <div class="phase-content">`;
+    const subUl = document.createElement('ul');
+    subUl.className = 'sidebar-subnav';
 
-    if (phase.isChecklist) {
-      headerHtml += renderChecklist(phase.items);
-    } else {
-      phase.steps.forEach(step => {
-        headerHtml += renderStep(step);
-      });
-    }
+    group.phases.forEach(pi => {
+      const phase = phases[pi];
+      const subLi = document.createElement('li');
+      const subA = document.createElement('a');
+      subA.href = '#';
+      subA.setAttribute('data-phase', pi);
+      subA.innerHTML = `<span class="phase-badge">${phase.number}</span> ${phase.title}`;
+      subA.onclick = function(e) {
+        e.preventDefault();
+        showPhase(pi);
+      };
+      subLi.appendChild(subA);
+      subUl.appendChild(subLi);
+    });
 
-    headerHtml += `</div></div>`;
-    phaseEl.innerHTML = headerHtml;
-    container.appendChild(phaseEl);
+    groupLi.appendChild(subUl);
+    navList.appendChild(groupLi);
   });
 }
 
+function toggleSidebarGroup(el) {
+  el.parentElement.classList.toggle('open');
+}
+
+// ===== BUILD PHASE CARD =====
+function buildPhaseCard(phase) {
+  let html = `<div class="phase open" id="${phase.id}">`;
+  html += `
+    <div class="phase-header" onclick="togglePhase(this.parentElement)">
+      <span class="phase-number"><i class="fas ${phase.icon}"></i></span>
+      <span class="phase-title">FASE ${phase.number} — ${phase.title}</span>
+      <span class="phase-toggle"><i class="fas fa-chevron-down"></i></span>
+    </div>
+    <div class="phase-body">
+      <div class="phase-content">`;
+
+  if (phase.hasGenerator) {
+    html += `<div id="entity-generator-placeholder"></div>`;
+  }
+
+  if (phase.isChecklist) {
+    html += renderChecklist(phase.items);
+  } else {
+    phase.steps.forEach(step => {
+      html += renderStep(step);
+    });
+  }
+
+  html += `</div></div></div>`;
+  return html;
+}
+
+function renderEntityGeneratorInline() {
+  const placeholder = document.getElementById('entity-generator-placeholder');
+  if (!placeholder) return;
+  const template = document.getElementById('entity-generator-template');
+  if (!template) return;
+  placeholder.innerHTML = template.innerHTML;
+  renderEntityGenerator();
+}
+
+// ===== STEP RENDER =====
 function renderStep(step) {
   let html = `<div class="step">`;
   if (step.title) html += `<h4>${step.title}</h4>`;
@@ -855,13 +931,13 @@ function renderStep(step) {
   if (step.code) {
     const lang = detectLang(step.code);
     html += `<div class="code-block">
-      <button class="copy-btn" onclick="copyCode(this)">📋 Copiar</button>
+      <button class="copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copiar</button>
       <pre><code class="language-${lang}">${escapeHtml(step.code)}</code></pre>
     </div>`;
   }
 
   if (step.verify) {
-    html += `<div class="step"><h4>✅ Verificar</h4><p>${step.verify.replace(/\n/g, '<br>')}</p></div>`;
+      html += `<div class="step"><h4><i class="fas fa-check-circle" style="color:var(--success);font-size:0.9rem;"></i> Verificar</h4><p>${step.verify.replace(/\n/g, '<br>')}</p></div>`;
   }
 
   if (step.isTable && step.headers && step.rows) {
@@ -915,7 +991,6 @@ function highlightBlocks(parent) {
 }
 
 // ===== INTERACTIONS =====
-
 function togglePhase(el) {
   el.classList.toggle('open');
 }
@@ -924,10 +999,10 @@ function copyCode(btn) {
   const pre = btn.nextElementSibling;
   const code = pre.textContent;
   navigator.clipboard.writeText(code).then(() => {
-    btn.textContent = '✅ Copiado';
+    btn.innerHTML = '<i class="fas fa-check"></i> Copiado';
     btn.classList.add('copied');
     setTimeout(() => {
-      btn.textContent = '📋 Copiar';
+      btn.innerHTML = '<i class="fas fa-copy"></i> Copiar';
       btn.classList.remove('copied');
     }, 2000);
   }).catch(() => {
@@ -958,26 +1033,46 @@ function toggleTheme() {
   const next = current === 'dark' ? 'light' : 'dark';
   html.setAttribute('data-theme', next);
   localStorage.setItem('theme', next);
-  document.getElementById('theme-btn').textContent = next === 'dark' ? '☀️ Claro' : '🌙 Oscuro';
+  const themeBtn = document.getElementById('theme-btn');
+  if (next === 'dark') {
+    themeBtn.innerHTML = '<i class="fas fa-sun"></i> <span>Claro</span>';
+  } else {
+    themeBtn.innerHTML = '<i class="fas fa-moon"></i> <span>Oscuro</span>';
+  }
 }
 
 // ===== SEARCH =====
 function searchGuide() {
   const query = document.getElementById('search-input').value.toLowerCase().trim();
-  const phases = document.querySelectorAll('.phase');
+  const phaseView = document.getElementById('phase-view');
+  const dashboardView = document.getElementById('dashboard-view');
 
-  phases.forEach(phase => {
-    if (!query) {
-      phase.style.display = '';
-      return;
+  const onPhase = phaseView.style.display !== 'none';
+
+  if (!query) {
+    if (onPhase) {
+      document.querySelectorAll('.phase .step').forEach(s => s.style.display = '');
     }
-    const text = phase.textContent.toLowerCase();
-    phase.style.display = text.includes(query) ? '' : 'none';
-  });
+    return;
+  }
+
+  if (onPhase) {
+    const steps = phaseView.querySelectorAll('.step');
+    let found = false;
+    steps.forEach(s => {
+      const match = s.textContent.toLowerCase().includes(query);
+      s.style.display = match ? '' : 'none';
+      if (match) found = true;
+    });
+    if (!found) showNotification('Texto no encontrado en esta sección', 'info');
+  } else {
+    if (!dashboardView.textContent.toLowerCase().includes(query)) {
+      showNotification('Texto no encontrado en el Dashboard', 'info');
+    }
+  }
 }
 
 // ===== ENTITY GENERATOR =====
-
 const DEFAULT_FIELDS = [
   { name: 'id', type: 'INTEGER', length: '', pk: true, notNull: true, unique: false, default: '' },
   { name: 'nombre', type: 'VARCHAR', length: '100', pk: false, notNull: true, unique: false, default: '' },
@@ -995,6 +1090,8 @@ let fieldCount = 0;
 
 function renderEntityGenerator() {
   const container = document.getElementById('entity-generator-form');
+  if (!container) return;
+  fieldCount = 0;
   let html = `
     <div class="input-row">
       <div style="flex:2">
@@ -1012,7 +1109,7 @@ function renderEntityGenerator() {
     <div class="fields-section">
       <div class="fields-header">
         <label class="field-label">Campos de la tabla</label>
-        <button type="button" class="btn-add-field" onclick="addFieldRow()">+ Agregar Campo</button>
+        <button type="button" class="btn-add-field" onclick="addFieldRow()"><i class="fas fa-plus"></i> Agregar Campo</button>
       </div>
       <div class="fields-grid fields-header-row">
         <span class="field-hdr">Nombre</span>
@@ -1028,17 +1125,17 @@ function renderEntityGenerator() {
     </div>
 
     <div style="text-align:center;margin-top:1rem;">
-      <button id="generate-btn" class="btn-generate" onclick="generateForEntity()">🚀 Generar Código</button>
+      <button id="generate-btn" class="btn-generate" onclick="generateForEntity()"><i class="fas fa-play"></i> Generar Código</button>
     </div>
   `;
   container.innerHTML = html;
 
-  // Add default fields
   DEFAULT_FIELDS.forEach(f => addFieldRow(f));
 }
 
 function addFieldRow(data) {
   const container = document.getElementById('fields-container');
+  if (!container) return;
   const idx = fieldCount++;
   const name = data ? data.name : '';
   const type = data ? data.type : 'VARCHAR';
@@ -1048,7 +1145,6 @@ function addFieldRow(data) {
   const unique = data && data.unique ? 'checked' : '';
   const dflt = data ? data.default : '';
 
-  // Disable PK and NOT NULL for id field
   const idField = name === 'id';
 
   const row = document.createElement('div');
@@ -1062,7 +1158,7 @@ function addFieldRow(data) {
     <input type="checkbox" class="f-notnull" ${notNull} ${idField ? 'disabled checked' : ''}>
     <input type="checkbox" class="f-unique" ${unique}>
     <input type="text" class="f-default" value="${dflt}" placeholder="valor">
-    <button type="button" class="btn-remove-field" onclick="removeFieldRow(${idx})" ${name === 'id' ? 'disabled' : ''}>✕</button>
+    <button type="button" class="btn-remove-field" onclick="removeFieldRow(${idx})" ${name === 'id' ? 'disabled' : ''}><i class="fas fa-times"></i></button>
   `;
   container.appendChild(row);
 }
@@ -1108,7 +1204,7 @@ async function generateForEntity() {
   }
 
   btn.disabled = true;
-  btn.textContent = 'Generando...';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
 
   try {
     const response = await fetch('/api/generate', {
@@ -1121,7 +1217,7 @@ async function generateForEntity() {
     if (data.error) {
       showNotification(data.error, 'error');
       btn.disabled = false;
-      btn.textContent = '🚀 Generar Código';
+      btn.innerHTML = '<i class="fas fa-play"></i> Generar Código';
       return;
     }
 
@@ -1133,7 +1229,7 @@ async function generateForEntity() {
   }
 
   btn.disabled = false;
-  btn.textContent = '🚀 Generar Código';
+  btn.innerHTML = '<i class="fas fa-play"></i> Generar Código';
 }
 
 function renderGeneratedTabs(data) {
@@ -1166,7 +1262,7 @@ function renderGeneratedTabs(data) {
   tabs.forEach((tab, i) => {
     const lang = tab.id === 'sql' ? 'sql' : tab.id === 'env' || tab.id === 'deps' ? 'bash' : 'javascript';
     html += `<div class="code-block ${i === 0 ? 'active' : ''}" id="gen-${tab.id}">
-      <button class="copy-btn" onclick="copyCode(this)">📋 Copiar</button>
+      <button class="copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copiar</button>
       <pre><code class="language-${lang}">${escapeHtml(tab.content)}</code></pre>
     </div>`;
   });
@@ -1191,49 +1287,33 @@ function showNotification(message, type = 'info') {
   setTimeout(() => el.remove(), 3000);
 }
 
-// ===== ACTIVE SIDEBAR LINK =====
-function updateActiveSidebar() {
-  const links = document.querySelectorAll('.sidebar-nav a');
-  let currentId = '';
-
-  phases.forEach(phase => {
-    const el = document.getElementById(phase.id);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      if (rect.top <= 150) currentId = phase.id;
-    }
-  });
-
-  links.forEach(link => {
-    link.classList.toggle('active', link.getAttribute('href') === `#${currentId}`);
-  });
+// ===== CHECKLIST PROGRESS DISPLAY =====
+function addChecklistProgress() {
+  const checklist = document.getElementById('checklist');
+  if (!checklist) return;
+  const progress = document.createElement('div');
+  progress.id = 'checklist-progress';
+  progress.style.cssText = 'text-align:right;font-size:0.8rem;color:var(--text-secondary);margin-top:0.5rem;';
+  checklist.parentNode.insertBefore(progress, checklist.nextSibling);
+  updateChecklistProgress();
 }
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
-  renderPhases();
+  renderSidebar();
 
-  // Open first phase by default
-  const firstPhase = document.querySelector('.phase');
-  if (firstPhase) firstPhase.classList.add('open');
+  document.querySelector('.sidebar-header').addEventListener('click', showDashboard);
 
-  // Theme
   const savedTheme = localStorage.getItem('theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
-  document.getElementById('theme-btn').textContent = savedTheme === 'dark' ? '☀️ Claro' : '🌙 Oscuro';
+  const themeBtn = document.getElementById('theme-btn');
+  themeBtn.innerHTML = savedTheme === 'dark'
+    ? '<i class="fas fa-sun"></i> <span>Claro</span>'
+    : '<i class="fas fa-moon"></i> <span>Oscuro</span>';
 
-  // Checklist progress
-  updateChecklistProgress();
-
-  // Scroll spy
-  window.addEventListener('scroll', updateActiveSidebar);
-
-  // Search on input
   document.getElementById('search-input').addEventListener('input', searchGuide);
 
-  // Apply syntax highlighting
-  highlightBlocks(document.getElementById('phases-container'));
+  showDashboard();
 
-  // Render entity generator
-  renderEntityGenerator();
+  addChecklistProgress();
 });

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Guía Práctica - Node.js + Angular + MySQL</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 </head>
@@ -11,11 +12,18 @@
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
-    <div class="sidebar-header">
-      <h1>📚 Guía del Parcial</h1>
-      <p>Node.js • Express • MySQL • Angular</p>
+    <div class="sidebar-header" style="cursor:pointer;">
+      <h1><i class="fas fa-graduation-cap"></i> Guía del Parcial</h1>
+      <p>Node.js · Express · MySQL · Angular</p>
     </div>
-    <ul class="sidebar-nav" id="sidebar-nav"></ul>
+    <ul class="sidebar-nav" id="sidebar-nav">
+      <li class="sidebar-dashboard">
+        <a href="#" class="dashboard-link active" onclick="showDashboard();return false;">
+          <span class="phase-badge"><i class="fas fa-th-large"></i></span>
+          Dashboard
+        </a>
+      </li>
+    </ul>
   </aside>
 
   <!-- MAIN CONTENT -->
@@ -24,73 +32,100 @@
     <!-- TOP BAR -->
     <div class="top-bar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <i class="fas fa-search search-icon"></i>
         <input type="text" id="search-input" placeholder="Buscar en la guía..." autocomplete="off">
       </div>
-      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">🌙 Oscuro</button>
+      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">
+        <i class="fas fa-moon"></i> <span>Oscuro</span>
+      </button>
     </div>
 
-    <!-- ENTITY GENERATOR -->
-    <div class="entity-generator">
-      <h3>⚡ Generador de Código Multi-BD</h3>
-      <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem;">
-        Define tu entidad, sus campos y el motor de base de datos. Generamos SQL, modelo Sequelize, controlador, rutas y código Angular automáticamente.
-        <strong>Soporta: MySQL, PostgreSQL, SQL Server y Oracle.</strong>
-      </p>
-      <div id="entity-generator-form"></div>
-      <div class="generated-code" id="generated-result"></div>
-    </div>
+    <!-- DASHBOARD VIEW (landing page) -->
+    <div id="dashboard-view" class="dashboard-view">
+      <div class="dashboard-card">
+        <div class="dashboard-card-header">
+          <div class="badge"><i class="fas fa-book-open"></i> Acerca de esta guía</div>
+          <h2>Guía Práctica para el Parcial</h2>
+          <p class="subtitle">Desarrollo Web &amp; Bases de Datos II</p>
+        </div>
 
-    <!-- DASHBOARD / CREDITS -->
-    <div class="credits-card">
-      <span class="badge">📖 Acerca de esta guía</span>
-      <h2>Guía Práctica para el Parcial — Desarrollo Web &amp; Bases de Datos II</h2>
-      <p>
-        Esta es una <strong>sub-guía enfocada y optimizada</strong> para la preparación del examen parcial
-        de la asignatura. Contiene únicamente los pasos esenciales para construir un <strong>CRUD completo
-        de una sola entidad</strong> con Node.js, Express, Sequelize y Angular, eliminando la complejidad
-        de temas como autenticación JWT, paginación y múltiples tablas que se ven en la guía completa.
-      </p>
-      <p>
-        Todo el contenido aquí presentado está <strong>basado en la guía docente original</strong> del profesor,
-        resumido y adaptado para que puedas repasar de forma rápida y práctica antes del parcial.
-        Incluye un <strong>generador de código multi-motor</strong> (MySQL, PostgreSQL, SQL Server, Oracle)
-        para que adaptes los ejemplos a cualquier base de datos.
-      </p>
+        <div class="dashboard-card-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <i class="fas fa-bullseye"></i>
+              <div>
+                <strong>Enfoque</strong>
+                <p>Sub-guía optimizada con los pasos esenciales para construir un <strong>CRUD completo de una sola entidad</strong> con Node.js, Express, Sequelize y Angular.</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <i class="fas fa-file-alt"></i>
+              <div>
+                <strong>Contenido</strong>
+                <p>Basado en la <strong>guía docente original</strong>, resumido y adaptado para repasar de forma rápida y práctica antes del parcial.</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <i class="fas fa-cog"></i>
+              <div>
+                <strong>Generador de código</strong>
+                <p>Multi-motor (MySQL, PostgreSQL, SQL Server, Oracle) para adaptar los ejemplos a cualquier base de datos.</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <div class="teacher-info">
-        <strong style="font-size:0.85rem;">👨‍🏫 Créditos y atribución</strong>
-        <p style="margin-top:0.35rem;font-size:0.82rem;">
-          <strong>Docente:</strong> Ing. Jaider Quintero<br>
-          <strong>Universidad de La Guajira</strong> — Programa de Ingeniería de Sistemas<br>
-          <strong>Asignaturas:</strong> Desarrollo Web · Bases de datos II<br>
-          <strong>Sitio académico:</strong>
-          <a href="https://tecnogua.com/academic/site/" target="_blank" rel="noopener">
-            tecnogua.com/academic/site/
-          </a>
-        </p>
+        <div class="teacher-card">
+          <div class="teacher-avatar">
+            <i class="fas fa-chalkboard-teacher"></i>
+          </div>
+          <div class="teacher-details">
+            <strong>Docente:</strong> Ing. Jaider Quintero<br>
+            <span>Universidad de La Guajira — Programa de Ingeniería de Sistemas</span><br>
+            <span>Asignaturas: Desarrollo Web · Bases de datos II</span><br>
+            <a href="https://tecnogua.com/academic/site/" target="_blank" rel="noopener">
+              <i class="fas fa-globe"></i> tecnogua.com/academic/site/
+            </a>
+          </div>
+        </div>
+
+        <div class="tech-tags">
+          <span class="tech-tag">Node.js</span>
+          <span class="tech-tag">Express</span>
+          <span class="tech-tag">Sequelize</span>
+          <span class="tech-tag">Angular</span>
+          <span class="tech-tag">MySQL</span>
+          <span class="tech-tag">PostgreSQL</span>
+          <span class="tech-tag">SQL Server</span>
+          <span class="tech-tag">Oracle</span>
+          <span class="tech-tag">Faker</span>
+        </div>
+
+        <div class="dashboard-card-footer">
+          <i class="fas fa-lightbulb"></i>
+          Recuerda: Busca los marcadores <code class="replace-marker">REEMPLAZAR</code>
+          en la guía y cámbialos según la entidad que el docente asigne en tu parcial.
+        </div>
       </div>
-
-      <div class="tags">
-        <span>Node.js</span>
-        <span>Express</span>
-        <span>Sequelize</span>
-        <span>Angular</span>
-        <span>MySQL</span>
-        <span>PostgreSQL</span>
-        <span>SQL Server</span>
-        <span>Oracle</span>
-        <span>Faker</span>
-      </div>
-
-      <p style="margin-top:1rem;font-size:0.78rem;font-style:italic;">
-        💡 Recuerda: Busca los marcadores <code class="replace-marker" style="font-size:0.75rem;">REEMPLAZAR</code>
-        en la guía y cámbialos según la entidad que el docente asigne en tu parcial.
-      </p>
     </div>
 
-    <!-- PHASES -->
-    <div id="phases-container"></div>
+    <!-- PHASE VIEW (shown when a phase is selected) -->
+    <div id="phase-view" class="phase-view" style="display:none;"></div>
+
+    <!-- ENTITY GENERATOR (hidden, injected into Fase 1 dynamically) -->
+    <div id="entity-generator-template" style="display:none;">
+      <div class="entity-generator">
+        <div class="entity-generator-header">
+          <i class="fas fa-bolt"></i>
+          <div>
+            <h3>Generador de Código Multi-BD</h3>
+            <p>Define tu entidad, sus campos y el motor de base de datos. Generamos SQL, modelo, controlador, rutas y código Angular automáticamente.</p>
+          </div>
+        </div>
+        <div id="entity-generator-form"></div>
+        <div class="generated-code" id="generated-result"></div>
+      </div>
+    </div>
 
   </main>
 
