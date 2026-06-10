@@ -1316,4 +1316,12 @@ document.addEventListener('DOMContentLoaded', () => {
   showDashboard();
 
   addChecklistProgress();
+
+  fetch('/api/stats')
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById('visitor-count');
+      if (el) el.innerHTML = `<i class="fas fa-users"></i> ${data.total} persona${data.total !== 1 ? 's' : ''} han usado esta guía`;
+    })
+    .catch(() => {});
 });

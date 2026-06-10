@@ -1,6 +1,41 @@
-from flask import Flask, render_template, request, jsonify
+import sqlite3
+import os
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'guia-dw-secret-key-change-in-production')
+
+DB_PATH = os.path.join(os.path.dirname(__file__), 'visitas.db')
+
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('''CREATE TABLE IF NOT EXISTS visitas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        fecha TEXT NOT NULL
+    )''')
+    conn.commit()
+    conn.close()
+
+
+def registrar_visita(nombre):
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('INSERT INTO visitas (nombre, fecha) VALUES (?, ?)',
+                 (nombre.strip(), datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def contar_visitas():
+    conn = sqlite3.connect(DB_PATH)
+    count = conn.execute('SELECT COUNT(*) FROM visitas').fetchone()[0]
+    conn.close()
+    return count
+
+
+init_db()
 
 ENGINES = {
     'mysql': {
@@ -323,9 +358,30 @@ const {capitalized}Controller = {{
 module.exports = {capitalized}Controller;'''
 
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    return render_template('index.html')
+    if request.method == 'POST':
+        nombre = request.form.get('nombre', '').strip()
+        if nombre:
+            session['usuario'] = nombre
+            registrar_visita(nombre)
+            return redirect(url_for('guia'))
+        return render_template('login.html', error='Ingresa tu nombre')
+    if 'usuario' not in session:
+        return render_template('login.html')
+    return redirect(url_for('guia'))
+
+
+@app.route('/guia')
+def guia():
+    if 'usuario' not in session:
+        return redirect(url_for('index'))
+    return render_template('index.html', usuario=session['usuario'])
+
+
+@app.route('/api/stats')
+def api_stats():
+    return jsonify({'total': contar_visitas()})
 
 
 @app.route('/api/generate', methods=['POST'])

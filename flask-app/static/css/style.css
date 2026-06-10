@@ -515,12 +515,26 @@ body {
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .dashboard-card-footer i {
   color: var(--warning);
   font-size: 0.85rem;
+}
+
+.dashboard-card-footer .visitor-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.dashboard-card-footer .visitor-count i {
+  color: var(--primary);
 }
 
 /* ===== PHASE VIEW ===== */
