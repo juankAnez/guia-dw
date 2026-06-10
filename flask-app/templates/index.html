@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guía Práctica - Node.js + Angular + MySQL</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>📚 Guía del Parcial</h1>
+      <p>Node.js • Express • MySQL • Angular</p>
+    </div>
+    <ul class="sidebar-nav" id="sidebar-nav"></ul>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Buscar en la guía..." autocomplete="off">
+      </div>
+      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">🌙 Oscuro</button>
+    </div>
+
+    <!-- ENTITY GENERATOR -->
+    <div class="entity-generator">
+      <h3>⚡ Generador de Código Multi-BD</h3>
+      <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+        Define tu entidad, sus campos y el motor de base de datos. Generamos SQL, modelo Sequelize, controlador, rutas y código Angular automáticamente.
+        <strong>Soporta: MySQL, PostgreSQL, SQL Server y Oracle.</strong>
+      </p>
+      <div id="entity-generator-form"></div>
+      <div class="generated-code" id="generated-result"></div>
+    </div>
+
+    <!-- PHASES -->
+    <div id="phases-container"></div>
+
+    <!-- FOOTER -->
+    <div style="text-align:center;padding:2rem 0;color:var(--text-secondary);font-size:0.8rem;border-top:1px solid var(--border);margin-top:2rem;">
+      <p>Guía práctica para el parcial — Basada en la guía del docente</p>
+      <p style="margin-top:0.25rem;">💡 Recuerda: <strong>REEMPLAZA</strong> los marcadores según la entidad que te dé el docente</p>
+    </div>
+
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+</body>
+</html>
