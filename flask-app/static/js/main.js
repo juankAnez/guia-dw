@@ -808,6 +808,7 @@ export class ProductoForm implements OnInit {
 
 // ===== GLOBAL STATE =====
 let currentEntityName = '';
+let generatedEntityData = null;
 
 // ===== SIDEBAR GROUPS =====
 const sidebarGroups = [
@@ -822,6 +823,9 @@ function showDashboard() {
   document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
   const dashLink = document.querySelector('.sidebar-dashboard a');
   if (dashLink) dashLink.classList.add('active');
+  document.querySelector('.search-box').style.display = 'none';
+  document.getElementById('search-input').value = '';
+  document.querySelectorAll('.step').forEach(s => { s.style.display = ''; s.classList.remove('step-highlight'); });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -829,6 +833,7 @@ function showPhase(index) {
   document.getElementById('dashboard-view').style.display = 'none';
   const phaseView = document.getElementById('phase-view');
   phaseView.style.display = 'block';
+  document.querySelector('.search-box').style.display = '';
 
   const phase = phases[index];
   phaseView.innerHTML = buildPhaseCard(phase);
@@ -844,9 +849,9 @@ function showPhase(index) {
     renderEntityGeneratorInline();
   }
 
-  if (currentEntityName.trim()) {
-    syncGuideEntity(currentEntityName);
-  }
+  addAnimateOnScroll();
+  initScrollAnimations();
+  closeMobileSidebar();
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -874,6 +879,7 @@ function renderSidebar() {
       const subA = document.createElement('a');
       subA.href = '#';
       subA.setAttribute('data-phase', pi);
+      subA.setAttribute('role', 'menuitem');
       subA.innerHTML = `<span class="phase-badge"><i class="fas ${phase.icon}"></i></span> ${phase.title}`;
       subA.onclick = function(e) {
         e.preventDefault();
@@ -957,12 +963,17 @@ function renderStep(step) {
   if (step.title) html += `<h4>${step.title}</h4>`;
   if (step.content) {
     let contentHtml = step.content.replace(/⚠️?/g, '<i class="fas fa-exclamation-triangle" style="color:var(--warning);font-size:0.7rem;"></i>');
+    // Make replace-marker spans into toggle buttons
+    contentHtml = contentHtml.replace(
+      /<span class="replace-marker">(.*?)<\/span>/g,
+      '<button class="replace-marker replace-marker-btn" onclick="toggleReplaceMarker(this)" title="Click para alternar entre entidad predeterminada y tu entidad">$1</button>'
+    );
     html += `<p>${contentHtml}</p>`;
   }
 
   if (step.code) {
     const lang = detectLang(step.code);
-    html += `<div class="code-block">
+    html += `<div class="code-block" data-original-code="${escapeAttr(step.code)}">
       <span class="code-lang">${lang}</span>
       <button class="copy-btn" onclick="copyCode(this)" title="Copiar"><i class="fas fa-copy"></i></button>
       <pre><code class="language-${lang}">${escapeHtml(step.code)}</code></pre>
@@ -989,6 +1000,104 @@ function renderStep(step) {
 
   html += `</div>`;
   return html;
+}
+
+function escapeAttr(text) {
+  return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ===== STEP TITLE → GENERATED CODE KEY MAPPING =====
+const STEP_GEN_KEY_MAP = {
+  'Variables de entorno (.env)': 'env',
+  'Crear la tabla principal': 'sql',
+  'Plantilla del modelo': 'model',
+  'Plantilla del controlador': 'controller',
+  'Plantilla de rutas': 'routes',
+  'Servicio HTTP': 'angularService'
+};
+
+const GEN_KEY_LANG = {
+  'env': 'bash',
+  'sql': 'sql',
+  'model': 'javascript',
+  'controller': 'javascript',
+  'routes': 'javascript',
+  'angularService': 'javascript'
+};
+
+// ===== TOGGLE REPLACE MARKER =====
+function toggleReplaceMarker(btn) {
+  const entity = currentEntityName.trim();
+  if (!entity) {
+    showNotification('Primero ingresa el nombre de tu entidad en el Generador de Código (Fase 2)', 'info');
+    return;
+  }
+
+  const step = btn.closest('.step');
+  if (!step) return;
+  const codeBlock = step.querySelector('.code-block');
+  if (!codeBlock) return;
+
+  const codeEl = codeBlock.querySelector('code');
+  if (!codeEl) return;
+
+  const originalCode = codeBlock.getAttribute('data-original-code');
+  const isShowingOriginal = codeBlock.getAttribute('data-replaced') !== 'true';
+
+  const entityCap = entity.charAt(0).toUpperCase() + entity.slice(1).toLowerCase();
+
+  // Determine gen key from step title
+  const stepTitleEl = step.querySelector('h4');
+  const stepTitle = stepTitleEl ? stepTitleEl.textContent.trim() : '';
+  const genKey = STEP_GEN_KEY_MAP[stepTitle];
+
+  function applyHighlight(el, code, lang) {
+    if (hljs) {
+      const result = hljs.highlight(code, { language: lang, ignoreIllegals: true });
+      el.className = `language-${lang} hljs`;
+      el.innerHTML = result.value;
+    } else {
+      el.className = `language-${lang}`;
+      el.textContent = code;
+    }
+  }
+
+  if (isShowingOriginal) {
+    // Try to use generated code first (full fields + types)
+    if (generatedEntityData && genKey && generatedEntityData[genKey]) {
+      const generated = generatedEntityData[genKey];
+      const lang = GEN_KEY_LANG[genKey] || detectLang(generated);
+      applyHighlight(codeEl, generated, lang);
+    } else {
+      // Fallback: string replacement (name only, preserves original fields)
+      const entityUpper = entity.toUpperCase();
+      const entityLower = entity.toLowerCase();
+      let replaced = originalCode;
+      replaced = replaced.replace(/PRODUCTOS/g, entityUpper + 'S');
+      replaced = replaced.replace(/PRODUCTO/g, entityUpper);
+      replaced = replaced.replace(/Productos/g, entityCap + 's');
+      replaced = replaced.replace(/Producto/g, entityCap);
+      replaced = replaced.replace(/productos/g, entityLower + 's');
+      replaced = replaced.replace(/producto/g, entityLower);
+      replaced = replaced.replace(/bd_productos/g, 'bd_' + entityLower + 's');
+      replaced = replaced.replace(/\[REEMPLAZAR\]/g, entityCap);
+      replaced = replaced.replace(/\s*←\s*REEMPLAZAR/g, '');
+      const lang = detectLang(replaced);
+      applyHighlight(codeEl, replaced, lang);
+    }
+    codeBlock.setAttribute('data-replaced', 'true');
+    btn.classList.add('replaced');
+    btn.innerHTML = `<i class="fas fa-undo" style="font-size:0.65rem;"></i> Volver a Producto`;
+    showNotification(`Código cambiado a "${entityCap}"`, 'success');
+  } else {
+    // Restore original
+    const lang = detectLang(originalCode);
+    applyHighlight(codeEl, originalCode, lang);
+    codeBlock.setAttribute('data-replaced', 'false');
+    btn.classList.remove('replaced');
+    btn.innerHTML = `<i class="fas fa-exclamation-triangle" style="color:var(--warning);font-size:0.7rem;"></i> REEMPLAZA`;
+    showNotification('Código restaurado a "Producto" (predeterminado)', 'info');
+  }
 }
 
 function renderChecklist(items) {
@@ -1082,30 +1191,71 @@ function searchGuide() {
   const query = document.getElementById('search-input').value.toLowerCase().trim();
   const phaseView = document.getElementById('phase-view');
   const dashboardView = document.getElementById('dashboard-view');
-
-  const onPhase = phaseView.style.display !== 'none';
+  const searchBox = document.querySelector('.search-box');
 
   if (!query) {
-    if (onPhase) {
-      document.querySelectorAll('.phase .step').forEach(s => s.style.display = '');
-    }
+    document.querySelectorAll('.step').forEach(s => s.style.display = '');
+    document.querySelectorAll('.step-highlight').forEach(s => s.classList.remove('step-highlight'));
     return;
   }
 
-  if (onPhase) {
-    const steps = phaseView.querySelectorAll('.step');
-    let found = false;
-    steps.forEach(s => {
-      const match = s.textContent.toLowerCase().includes(query);
-      s.style.display = match ? '' : 'none';
-      if (match) found = true;
-    });
-    if (!found) showNotification('Texto no encontrado en esta sección', 'info');
-  } else {
-    if (!dashboardView.textContent.toLowerCase().includes(query)) {
-      showNotification('Texto no encontrado en el Dashboard', 'info');
+  const onPhase = phaseView.style.display !== 'none';
+  if (!onPhase) {
+    searchGuideGlobal(query);
+    return;
+  }
+
+  const steps = phaseView.querySelectorAll('.step');
+  let found = false;
+  steps.forEach(s => {
+    const match = s.textContent.toLowerCase().includes(query);
+    s.style.display = match ? '' : 'none';
+    if (match) { found = true; s.classList.add('step-highlight'); }
+    else { s.classList.remove('step-highlight'); }
+  });
+
+  if (!found) {
+    searchGuideGlobal(query);
+  }
+}
+
+function searchGuideGlobal(query) {
+  const dashboardView = document.getElementById('dashboard-view');
+
+  for (let i = 0; i < phases.length; i++) {
+    const phaseText = [];
+    const p = phases[i];
+    if (p.steps) {
+      p.steps.forEach(s => {
+        if (s.title) phaseText.push(s.title);
+        if (s.content) phaseText.push(s.content);
+        if (s.code) phaseText.push(s.code);
+        if (s.verify) phaseText.push(s.verify);
+      });
+    }
+    if (p.items) {
+      p.items.forEach(item => phaseText.push(item.text));
+    }
+    const allText = phaseText.join(' ').toLowerCase();
+    if (allText.includes(query)) {
+      showPhase(i);
+      setTimeout(() => {
+        const steps = document.querySelectorAll('.step');
+        let foundAny = false;
+        steps.forEach(s => {
+          const match = s.textContent.toLowerCase().includes(query);
+          s.style.display = match ? '' : 'none';
+          if (match) { foundAny = true; s.classList.add('step-highlight'); }
+        });
+        if (!foundAny) {
+          document.querySelectorAll('.step').forEach(s => s.style.display = '');
+        }
+      }, 100);
+      showNotification(`Resultados en "${p.title}"`, 'success');
+      return;
     }
   }
+  showNotification(`"${query}" no encontrado en la guía`, 'info');
 }
 
 // ===== ENTITY GENERATOR =====
@@ -1132,7 +1282,7 @@ function renderEntityGenerator() {
     <div class="input-row">
       <div style="flex:2">
         <label class="field-label">Nombre de la entidad</label>
-        <input type="text" id="entity-input" placeholder="Ej: producto, cliente, tarea..." autocomplete="off" value="${currentEntityName}">
+        <input type="text" id="entity-input" placeholder="Ej: producto, cliente, tarea..." autocomplete="off" value="${currentEntityName}" oninput="currentEntityName = this.value.trim().toLowerCase()">
       </div>
       <div style="flex:1">
         <label class="field-label">Motor de base de datos</label>
@@ -1225,6 +1375,7 @@ function collectFields() {
 
 async function generateForEntity() {
   const entity = document.getElementById('entity-input').value.trim().toLowerCase();
+  currentEntityName = entity;
   const engine = document.getElementById('engine-select').value;
   const fields = collectFields();
   const btn = document.getElementById('generate-btn');
@@ -1257,6 +1408,7 @@ async function generateForEntity() {
       return;
     }
 
+    generatedEntityData = data;
     result.classList.add('show');
     renderGeneratedTabs(data);
     showNotification(`Código generado para "${data.entity}" en ${data.engineName}`, 'success');
@@ -1366,11 +1518,72 @@ function addChecklistProgress() {
   updateChecklistProgress();
 }
 
+// ===== MOBILE SIDEBAR =====
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const toggle = document.getElementById('sidebar-toggle');
+  const isOpen = sidebar.classList.toggle('open');
+  overlay.classList.toggle('open', isOpen);
+  toggle.setAttribute('aria-expanded', isOpen);
+  toggle.innerHTML = isOpen ? '<i class="fas fa-times"></i>' : '<i class="fas fa-bars"></i>';
+  toggle.setAttribute('aria-label', isOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación');
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const toggle = document.getElementById('sidebar-toggle');
+  sidebar.classList.remove('open');
+  overlay.classList.remove('open');
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.innerHTML = '<i class="fas fa-bars"></i>';
+  toggle.setAttribute('aria-label', 'Abrir menú de navegación');
+}
+
+// ===== SCROLL ANIMATIONS =====
+function initScrollAnimations() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+  document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+}
+
+function addAnimateOnScroll() {
+  const steps = document.querySelectorAll('.step');
+  steps.forEach((el, i) => {
+    el.style.transitionDelay = `${i * 30}ms`;
+    el.classList.add('animate-on-scroll');
+  });
+}
+
+// ===== IMPROVED NOTIFICATION =====
+const originalNotify = showNotification;
+showNotification = function(message, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `notification ${type}`;
+  el.textContent = message;
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
+  document.body.appendChild(el);
+  let timeout = setTimeout(() => el.remove(), 3000);
+  el.addEventListener('mouseenter', () => clearTimeout(timeout));
+  el.addEventListener('mouseleave', () => {
+    timeout = setTimeout(() => el.remove(), 3000);
+  });
+};
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
   renderSidebar();
 
-  document.querySelector('.sidebar-header').addEventListener('click', showDashboard);
+  document.querySelector('.sidebar-header').addEventListener('click', () => { showDashboard(); closeMobileSidebar(); });
 
   const savedTheme = localStorage.getItem('theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
@@ -1383,13 +1596,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   showDashboard();
 
-  document.addEventListener('input', function(e) {
-    if (e.target && e.target.id === 'entity-input') {
-      syncGuideEntity(e.target.value.trim());
-    }
-  });
-
   addChecklistProgress();
+  initScrollAnimations();
 
   fetch('/api/stats')
     .then(r => r.json())

@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Guía del Parcial</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-secondary);
+      background-image: var(--bg-gradient);
+      color: var(--text-primary);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    body.login-mode {
+      background: linear-gradient(-45deg, #083344, #164e63, #083344, #042f2e);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body.login-mode { animation: none; }
+      .login-card-admin { animation: none !important; }
+    }
+
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.15;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bg-orb-1 {
+      width: 500px; height: 500px;
+      background: #0891b2;
+      top: -150px; left: -100px;
+      animation: orbFloat 20s ease-in-out infinite;
+    }
+    .bg-orb-2 {
+      width: 400px; height: 400px;
+      background: #22d3ee;
+      bottom: -100px; right: -80px;
+      animation: orbFloat 25s ease-in-out infinite reverse;
+    }
+    .bg-orb-3 {
+      width: 300px; height: 300px;
+      background: #22c55e;
+      top: 50%; left: 50%;
+      animation: orbFloat 18s ease-in-out infinite 5s;
+    }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -30px) scale(1.1); }
+      66% { transform: translate(-20px, 20px) scale(0.9); }
+    }
+
+    .admin-container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem;
+      animation: fadeIn 0.5s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .admin-container { animation: none; }
+      body.login-mode { animation: none; }
+      .bg-orb { animation: none !important; }
+    }
+
+    .admin-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .admin-header h1 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      letter-spacing: -0.02em;
+    }
+
+    .admin-header h1 i {
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .admin-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .admin-actions .btn {
+      padding: 0.5rem 1.1rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .admin-actions .btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .admin-actions .btn-danger {
+      color: var(--danger);
+    }
+
+    .admin-actions .btn-danger:hover {
+      border-color: var(--danger);
+      background: rgba(239,68,68,0.06);
+      color: var(--danger);
+    }
+
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .stat-card:nth-child(1)::before { background: var(--primary-gradient); }
+    .stat-card:nth-child(2)::before { background: var(--success-gradient); }
+    .stat-card:nth-child(3)::before { background: var(--secondary-gradient); }
+
+    .stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .stat-card .stat-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .stat-card:nth-child(1) .stat-icon { background: var(--primary-light); color: var(--primary); }
+    .stat-card:nth-child(2) .stat-icon { background: #ecfdf5; color: var(--success); }
+    .stat-card:nth-child(3) .stat-icon { background: #ecfeff; color: var(--secondary); }
+
+    .stat-card .stat-number {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .stat-card .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      margin-top: 0.3rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .admin-table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    .admin-table thead {
+      background: var(--bg-secondary);
+    }
+
+    .admin-table th {
+      text-align: left;
+      padding: 0.85rem 1.25rem;
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .admin-table td {
+      padding: 0.8rem 1.25rem;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-light);
+      transition: background 0.2s;
+    }
+
+    .admin-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .admin-table tbody tr {
+      transition: all 0.2s ease;
+    }
+
+    .admin-table tbody tr:hover {
+      background: var(--bg-secondary);
+    }
+
+    .admin-table .date-col {
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+    }
+
+    .admin-table .id-col {
+      color: var(--text-muted);
+      font-weight: 500;
+      width: 50px;
+    }
+
+    .badge-user {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: linear-gradient(135deg, var(--primary-light), #f5f3ff);
+      color: var(--primary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.3rem 0.7rem;
+      border-radius: 20px;
+      border: 1px solid rgba(99,102,241,0.1);
+    }
+
+    .admin-empty {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--text-muted);
+    }
+
+    .admin-empty i {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+      opacity: 0.3;
+    }
+
+    .admin-empty p {
+      font-size: 0.9rem;
+    }
+
+    /* Login - uses dark animated gradient background via body.login-mode */
+    .login-admin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 85vh;
+    }
+
+    .login-card-admin {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+      animation: cardIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(30px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .login-card-admin .icon-wrap {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2));
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.25rem;
+    }
+
+    .login-card-admin .icon-wrap i {
+      font-size: 1.5rem;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .login-card-admin h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .login-card-admin .subtitle {
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 1.75rem;
+      line-height: 1.5;
+    }
+
+    .login-card-admin .input-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 0 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .login-card-admin .input-group:focus-within {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .login-card-admin .input-group i {
+      color: rgba(255,255,255,0.3);
+      font-size: 0.9rem;
+      transition: color 0.3s;
+    }
+
+    .login-card-admin .input-group:focus-within i {
+      color: #6366f1;
+    }
+
+    .login-card-admin .input-group input {
+      width: 100%;
+      padding: 0.85rem 0;
+      border: none;
+      background: transparent;
+      color: #fff;
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .login-card-admin .input-group input::placeholder {
+      color: rgba(255,255,255,0.25);
+    }
+
+    .login-card-admin .btn-primary {
+      width: 100%;
+      padding: 0.8rem;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+    }
+
+    .login-card-admin .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99,102,241,0.4);
+    }
+
+    .login-card-admin .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .login-card-admin .error {
+      background: rgba(239,68,68,0.15);
+      color: #fca5a5;
+      font-size: 0.78rem;
+      padding: 0.55rem 0.85rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      border: 1px solid rgba(239,68,68,0.2);
+      text-align: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .admin-footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+
+    .admin-footer-links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: rgba(255,255,255,0.3);
+      font-size: 0.75rem;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .admin-footer-links a:hover {
+      color: rgba(255,255,255,0.65);
+    }
+  </style>
+</head>
+<body class="{% if not (visitas is defined and visitas is not none) %}login-mode{% endif %}">
+  <div class="bg-orb bg-orb-1" aria-hidden="true"></div>
+  <div class="bg-orb bg-orb-2" aria-hidden="true"></div>
+  <div class="bg-orb bg-orb-3" aria-hidden="true"></div>
+  <div class="admin-container">
+    {% if visitas is defined and visitas is not none %}
+      {% set total = visitas|length %}
+      {% set usuarios = visitas|map(attribute='nombre')|unique|list %}
+
+      <div class="admin-header">
+        <h1><i class="fas fa-shield-alt" aria-hidden="true"></i> Panel de Administración</h1>
+        <div class="admin-actions">
+          <a href="{{ url_for('index') }}" class="btn" aria-label="Volver a la guía principal"><i class="fas fa-arrow-left"></i> Volver</a>
+          <a href="{{ url_for('admin_logout') }}" class="btn btn-danger" aria-label="Cerrar sesión"><i class="fas fa-sign-out-alt"></i> Salir</a>
+        </div>
+      </div>
+
+      <div class="stats-bar" role="status" aria-label="Estadísticas de visitas">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-eye" aria-hidden="true"></i></div>
+          <div class="stat-number">{{ total }}</div>
+          <div class="stat-label">Visitas totales</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-users" aria-hidden="true"></i></div>
+          <div class="stat-number">{{ usuarios|length }}</div>
+          <div class="stat-label">Usuarios únicos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-calendar-day" aria-hidden="true"></i></div>
+          <div class="stat-number" id="today-count">0</div>
+          <div class="stat-label">Visitas hoy</div>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        {% if visitas %}
+        <table class="admin-table" aria-label="Registro de visitas">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Usuario</th>
+              <th scope="col">Fecha y hora</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in visitas %}
+            <tr>
+              <td class="id-col">{{ v.id }}</td>
+              <td><span class="badge-user"><i class="fas fa-user" aria-hidden="true"></i> {{ v.nombre }}</span></td>
+              <td class="date-col"><i class="fas fa-clock" style="margin-right:0.35rem;opacity:0.4;" aria-hidden="true"></i>{{ v.fecha[:19].replace('T', ' ') }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="admin-empty">
+          <i class="fas fa-inbox" aria-hidden="true"></i>
+          <p>No hay visitas registradas aún.</p>
+        </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="login-admin">
+        <div class="login-card-admin">
+          <div class="icon-wrap" aria-hidden="true">
+            <i class="fas fa-lock"></i>
+          </div>
+          <h2>Acceso Administrativo</h2>
+          <p class="subtitle">Ingresa la clave para ver los registros de visitas.</p>
+
+          {% if error %}
+          <div class="error" role="alert"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
+          {% endif %}
+
+          <form method="POST" action="{{ url_for('admin_login') }}" aria-label="Formulario de acceso administrativo">
+            <div class="input-group">
+              <i class="fas fa-key" aria-hidden="true"></i>
+              <input type="password" name="clave" placeholder="Clave de administrador" required autofocus aria-label="Clave de administrador">
+            </div>
+            <button type="submit" class="btn-primary" aria-label="Ingresar al panel"><i class="fas fa-arrow-right" aria-hidden="true"></i> Ingresar</button>
+          </form>
+
+          <div class="admin-footer-links">
+            <a href="{{ url_for('index') }}" aria-label="Volver a la guía"><i class="fas fa-arrow-left"></i> Volver a la guía</a>
+            <a href="https://tecnogua.com/academic/site/" target="_blank" rel="noopener" aria-label="Sitio académico"><i class="fas fa-globe"></i> Sitio académico</a>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <script>
+    {% if visitas is defined and visitas is not none %}
+    const today = new Date().toISOString().slice(0, 10);
+    const count = {{ visitas|tojson }}.filter(v => v.fecha.slice(0, 10) === today).length;
+    document.getElementById('today-count').textContent = count;
+    {% endif %}
+
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  </script>
+</body>
+</html>

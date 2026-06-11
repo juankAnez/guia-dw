@@ -1,24 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es" data-theme="light">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description"
+    content="Guía práctica para el parcial de Desarrollo Web y Bases de Datos II — Node.js, Express, Sequelize, Angular y MySQL">
+  <meta property="og:title" content="Guía Práctica - Parcial DW/BDII">
+  <meta property="og:description"
+    content="Sub-guía optimizada con pasos esenciales para construir un CRUD completo con Node.js y Angular">
+  <meta property="og:type" content="website">
   <title>Guía Práctica - Node.js + Angular + MySQL</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Guide",
+    "name": "Guía Práctica para el Parcial",
+    "description": "Sub-guía optimizada con los pasos esenciales para construir un CRUD completo con Node.js, Express, Sequelize y Angular",
+    "author": { "@type": "Person", "name": "Ing. Jaider Quintero" },
+    "educationalLevel": "HigherEducation",
+    "teaches": ["Node.js", "Express", "Angular", "MySQL", "CRUD", "Sequelize"]
+  }
+  </script>
 </head>
+
 <body>
 
+  <a href="#main-content" class="skip-link" aria-label="Saltar al contenido principal">Saltar al contenido</a>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMobileSidebar()" aria-hidden="true"></div>
+
   <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sidebar-header" style="cursor:pointer;">
+  <aside class="sidebar" id="sidebar" aria-label="Navegación de la guía">
+    <div class="sidebar-header" style="cursor:pointer;" role="button" tabindex="0" aria-label="Volver al inicio"
+      onclick="showDashboard();closeMobileSidebar()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){showDashboard();closeMobileSidebar()}">
       <h1><i class="fas fa-graduation-cap"></i> Guía del Parcial</h1>
       <p><i class="fas fa-user"></i> {{ usuario }} · Node.js · Express · MySQL · Angular</p>
     </div>
-    <ul class="sidebar-nav" id="sidebar-nav">
+    <ul class="sidebar-nav" id="sidebar-nav" role="navigation" aria-label="Secciones de la guía">
       <li class="sidebar-dashboard">
-        <a href="#" class="dashboard-link active" onclick="showDashboard();return false;">
+        <a href="#" class="dashboard-link active" onclick="showDashboard();closeMobileSidebar();return false;"
+          role="menuitem">
           <span class="phase-badge"><i class="fas fa-th-large"></i></span>
           Dashboard
         </a>
@@ -26,16 +53,22 @@
     </ul>
   </aside>
 
-  <!-- MAIN CONTENT -->
-  <main class="main-content">
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleMobileSidebar()"
+    aria-label="Abrir menú de navegación" aria-expanded="false">
+    <i class="fas fa-bars"></i>
+  </button>
 
+  <!-- MAIN CONTENT -->
+  <main class="main-content" id="main-content">
     <!-- TOP BAR -->
-    <div class="top-bar">
-      <div class="search-box">
-        <i class="fas fa-search search-icon"></i>
-        <input type="text" id="search-input" placeholder="Buscar en la guía..." autocomplete="off">
+    <div class="top-bar" role="toolbar" aria-label="Barra de herramientas">
+      <div class="search-box" style="display:none;" role="search">
+        <i class="fas fa-search search-icon" aria-hidden="true"></i>
+        <input type="text" id="search-input" placeholder="Buscar en la guía..." autocomplete="off"
+          aria-label="Buscar en la guía" />
       </div>
-      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">
+      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" aria-label="Alternar modo oscuro/claro"
+        aria-live="polite">
         <i class="fas fa-moon"></i> <span>Oscuro</span>
       </button>
     </div>
@@ -44,9 +77,11 @@
     <div id="dashboard-view" class="dashboard-view">
       <div class="dashboard-card">
         <div class="dashboard-card-header">
-          <div class="badge"><i class="fas fa-book-open"></i> Acerca de esta guía</div>
+          <div class="badge">
+            <i class="fas fa-book-open"></i> Acerca de esta guía
+          </div>
           <h2>Guía Práctica para el Parcial</h2>
-          <p class="subtitle">Desarrollo Web &amp; Bases de Datos II</p>
+          <p class="subtitle">Desarrollo Web</p>
         </div>
 
         <div class="dashboard-card-body">
@@ -55,21 +90,32 @@
               <i class="fas fa-bullseye"></i>
               <div>
                 <strong>Enfoque</strong>
-                <p>Sub-guía optimizada con los pasos esenciales para construir un <strong>CRUD completo de una sola entidad</strong> con Node.js, Express, Sequelize y Angular.</p>
+                <p>
+                  Sub-guía optimizada con los pasos esenciales para construir
+                  un <strong>CRUD completo de una sola entidad</strong> con
+                  Node.js, Express, Sequelize y Angular.
+                </p>
               </div>
             </div>
             <div class="info-item">
               <i class="fas fa-file-alt"></i>
               <div>
                 <strong>Contenido</strong>
-                <p>Basado en la <strong>guía docente original</strong>, resumido y adaptado para repasar de forma rápida y práctica antes del parcial.</p>
+                <p>
+                  Basado en la <strong>guía docente original</strong>
+                  resumido y adaptado para repasar de forma rápida y práctica
+                  antes del parcial.
+                </p>
               </div>
             </div>
             <div class="info-item">
               <i class="fas fa-cog"></i>
               <div>
                 <strong>Generador de código</strong>
-                <p>Multi-motor (MySQL, PostgreSQL, SQL Server, Oracle) para adaptar los ejemplos a cualquier base de datos.</p>
+                <p>
+                  Multi-motor (MySQL, PostgreSQL, SQL Server, Oracle) para
+                  adaptar los ejemplos a cualquier base de datos.
+                </p>
               </div>
             </div>
           </div>
@@ -80,9 +126,10 @@
             <i class="fas fa-chalkboard-teacher"></i>
           </div>
           <div class="teacher-details">
-            <strong>Docente:</strong> Ing. Jaider Quintero<br>
-            <span>Universidad de La Guajira — Programa de Ingeniería de Sistemas</span><br>
-            <span>Asignaturas: Desarrollo Web · Bases de datos II</span><br>
+            <strong>Docente:</strong> Ing. Jaider Quintero<br />
+            <span>Universidad de La Guajira — Programa de Ingeniería de
+              Sistemas</span><br />
+            <span>Asignaturas: Desarrollo Web · Bases de datos II</span><br />
             <a href="https://tecnogua.com/academic/site/" target="_blank" rel="noopener">
               <i class="fas fa-globe"></i> tecnogua.com/academic/site/
             </a>
@@ -102,32 +149,41 @@
         </div>
 
         <div class="dashboard-card-footer">
-          <span><i class="fas fa-lightbulb"></i> Busca los marcadores <code class="replace-marker">REEMPLAZAR</code> y cámbialos según tu entidad.</span>
+          <span><i class="fas fa-lightbulb"></i>
+            Recuerda: Busca los marcadores <code class="replace-marker">REEMPLAZAR</code>
+            en la guía y cámbialos según la entidad que el docente asigne en tu parcial.</span>
           <span class="visitor-count" id="visitor-count">
             <i class="fas fa-users"></i> Cargando...
           </span>
+          <a href="{{ url_for('admin_login') }}"
+            style="font-size:0.7rem;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;">
+            <i class="fas fa-shield-alt"></i> Admin
+          </a>
         </div>
       </div>
     </div>
 
     <!-- PHASE VIEW (shown when a phase is selected) -->
-    <div id="phase-view" class="phase-view" style="display:none;"></div>
+    <div id="phase-view" class="phase-view" style="display: none"></div>
 
     <!-- ENTITY GENERATOR (hidden, injected into Fase 1 dynamically) -->
-    <div id="entity-generator-template" style="display:none;">
+    <div id="entity-generator-template" style="display: none">
       <div class="entity-generator">
         <div class="entity-generator-header">
           <i class="fas fa-bolt"></i>
           <div>
             <h3>Generador de Código Multi-BD</h3>
-            <p>Define tu entidad, sus campos y el motor de base de datos. Generamos SQL, modelo, controlador, rutas y código Angular automáticamente.</p>
+            <p>
+              Define tu entidad, sus campos y el motor de base de datos.
+              Generamos SQL, modelo, controlador, rutas y código Angular
+              automáticamente.
+            </p>
           </div>
         </div>
         <div id="entity-generator-form"></div>
         <div class="generated-code" id="generated-result"></div>
       </div>
     </div>
-
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -136,6 +192,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-
 </body>
+
 </html>

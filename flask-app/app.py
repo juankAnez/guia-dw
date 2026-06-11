@@ -35,6 +35,14 @@ def contar_visitas():
     return count
 
 
+def obtener_visitas():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute('SELECT * FROM visitas ORDER BY fecha DESC').fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 init_db()
 
 ENGINES = {
@@ -377,6 +385,34 @@ def guia():
     if 'usuario' not in session:
         return redirect(url_for('index'))
     return render_template('index.html', usuario=session['usuario'])
+
+
+@app.route('/admin', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        clave = request.form.get('clave', '').strip()
+        admin_pass = os.environ.get('ADMIN_KEY', 'admin123')
+        if clave == admin_pass:
+            session['admin'] = True
+            return redirect(url_for('admin_panel'))
+        return render_template('admin.html', error='Clave incorrecta')
+    if session.get('admin'):
+        return redirect(url_for('admin_panel'))
+    return render_template('admin.html')
+
+
+@app.route('/admin/panel')
+def admin_panel():
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    visitas = obtener_visitas()
+    return render_template('admin.html', visitas=visitas)
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin', None)
+    return redirect(url_for('admin_login'))
 
 
 @app.route('/api/stats')
