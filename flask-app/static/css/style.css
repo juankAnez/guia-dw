@@ -86,9 +86,9 @@ body {
   width: var(--sidebar-width);
   background: var(--bg-sidebar);
   color: var(--text-sidebar);
-  height: 100vh;
+  height: calc(100vh - 20px);
   position: sticky;
-  top: 0;
+  top: 20px;
   overflow-y: auto;
   flex-shrink: 0;
   z-index: 100;
@@ -656,50 +656,153 @@ body {
 .code-block {
   position: relative;
   margin: 0.75rem 0;
+  border-radius: var(--radius);
 }
 
 .code-block pre {
   background: var(--code-bg);
   color: var(--code-text);
-  padding: 1rem 1.25rem;
-  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem 1rem;
+  border-radius: 0 0 var(--radius) var(--radius);
   font-size: 0.8rem;
   overflow-x: auto;
-  line-height: 1.6;
+  overflow-y: hidden;
+  line-height: 1.65;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-top: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.code-block pre::-webkit-scrollbar {
+  height: 7px;
+}
+.code-block pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+.code-block pre::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+}
+.code-block pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.code-block .code-lang {
+  display: block;
+  background: color-mix(in srgb, var(--code-bg) 85%, #fff);
+  color: rgba(255,255,255,0.3);
+  font-size: 0.6rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  user-select: none;
+  line-height: 1;
 }
 
 .code-block .copy-btn {
   position: absolute;
-  top: 0.5rem;
+  top: 0.35rem;
   right: 0.5rem;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.72rem;
-  background: rgba(255,255,255,0.08);
-  color: var(--code-text);
-  border: 1px solid rgba(255,255,255,0.12);
+  padding: 0.3rem 0.55rem;
+  font-size: 0.7rem;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   font-family: inherit;
-  opacity: 0;
+  line-height: 1;
+  opacity: 0.5;
+  backdrop-filter: blur(4px);
+  z-index: 1;
 }
 
 .code-block:hover .copy-btn {
   opacity: 1;
+  color: var(--code-text);
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.15);
 }
 
 .code-block .copy-btn:hover {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+}
+
+.code-block .copy-btn:active {
+  transform: scale(0.93);
 }
 
 .code-block .copy-btn.copied {
   background: var(--success);
   border-color: var(--success);
+  color: #fff;
   opacity: 1;
+  transform: scale(1.05);
+}
+
+.code-block:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+
+/* ===== PHASE NAVIGATION ===== */
+.phase-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.phase-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.phase-nav-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.phase-nav-btn:active {
+  transform: scale(0.97);
+}
+
+.phase-nav-btn i {
+  font-size: 0.75rem;
+}
+
+.phase-nav-btn.next {
+  margin-left: auto;
+}
+
+.phase-nav-btn.next:only-child {
+  margin-left: auto;
 }
 
 /* ===== TABLES ===== */
@@ -1033,6 +1136,8 @@ body {
 .generated-code .code-block {
   position: relative;
   display: none;
+  border-radius: var(--radius);
+  box-shadow: none;
 }
 
 .generated-code .code-block.active {
@@ -1042,35 +1147,13 @@ body {
 .generated-code .code-block pre {
   background: var(--code-bg);
   color: var(--code-text);
-  padding: 1rem;
-  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  border-radius: 0 0 var(--radius) var(--radius);
   font-size: 0.78rem;
   overflow-x: auto;
   max-height: 320px;
-}
-
-.generated-code .copy-btn {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.68rem;
-  background: rgba(255,255,255,0.08);
-  color: var(--code-text);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-  opacity: 0;
-}
-
-.generated-code .code-block:hover .copy-btn {
-  opacity: 1;
-}
-
-.generated-code .copy-btn:hover {
-  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-top: none;
 }
 
 /* ===== NOTIFICATIONS ===== */
@@ -1246,5 +1329,18 @@ body {
 
   .entity-generator .input-row {
     flex-direction: column;
+  }
+
+  .phase-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .phase-nav-btn.next {
+    margin-left: 0;
+  }
+
+  .phase-nav-btn.next:only-child {
+    margin-left: 0;
   }
 }

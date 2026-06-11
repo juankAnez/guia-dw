@@ -4,7 +4,7 @@ const phases = [
     id: 'fase-0',
     number: 1,
     title: 'Preparación del Entorno',
-    icon: 'fa-tools',
+    icon: 'fa-laptop-code',
     steps: [
       {
         title: 'Instalar Node.js',
@@ -230,7 +230,7 @@ module.exports = ProductoModel;`
     id: 'fase-4',
     number: 5,
     title: 'Controlador',
-    icon: 'fa-cog',
+    icon: 'fa-gamepad',
     steps: [
       {
         title: '¿Qué es el controlador?',
@@ -342,7 +342,7 @@ module.exports = router;`
     id: 'fase-6',
     number: 7,
     title: 'Pruebas con Postman',
-    icon: 'fa-plug',
+    icon: 'fa-paper-plane',
     steps: [
       {
         title: 'CREAR (POST)',
@@ -806,6 +806,9 @@ export class ProductoForm implements OnInit {
   }
 ];
 
+// ===== GLOBAL STATE =====
+let currentEntityName = '';
+
 // ===== SIDEBAR GROUPS =====
 const sidebarGroups = [
   { name: 'Backend', icon: 'fa-server', phases: [0, 1, 2, 3, 4, 5, 6] },
@@ -841,6 +844,10 @@ function showPhase(index) {
     renderEntityGeneratorInline();
   }
 
+  if (currentEntityName.trim()) {
+    syncGuideEntity(currentEntityName);
+  }
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -867,7 +874,7 @@ function renderSidebar() {
       const subA = document.createElement('a');
       subA.href = '#';
       subA.setAttribute('data-phase', pi);
-      subA.innerHTML = `<span class="phase-badge">${phase.number}</span> ${phase.title}`;
+      subA.innerHTML = `<span class="phase-badge"><i class="fas ${phase.icon}"></i></span> ${phase.title}`;
       subA.onclick = function(e) {
         e.preventDefault();
         showPhase(pi);
@@ -894,12 +901,13 @@ function buildPhaseCard(phase) {
       <span class="phase-title">FASE ${phase.number} — ${phase.title}</span>
       <span class="phase-toggle"><i class="fas fa-chevron-down"></i></span>
     </div>
-    <div class="phase-body">
-      <div class="phase-content">`;
+    <div class="phase-body">`;
 
   if (phase.hasGenerator) {
     html += `<div id="entity-generator-placeholder"></div>`;
   }
+
+  html += `<div class="phase-content" id="guide-container">`;
 
   if (phase.isChecklist) {
     html += renderChecklist(phase.items);
@@ -909,7 +917,28 @@ function buildPhaseCard(phase) {
     });
   }
 
+  html += renderPhaseNavigation(phase);
   html += `</div></div></div>`;
+  return html;
+}
+
+function renderPhaseNavigation(phase) {
+  const currentIndex = phases.findIndex(p => p.id === phase.id);
+  const prevPhase = currentIndex > 0 ? phases[currentIndex - 1] : null;
+  const nextPhase = currentIndex < phases.length - 1 ? phases[currentIndex + 1] : null;
+
+  let html = `<div class="phase-nav">`;
+  if (prevPhase) {
+    html += `<button class="phase-nav-btn prev" onclick="showPhase(${currentIndex - 1})">
+      <i class="fas fa-arrow-left"></i> <span>${prevPhase.title}</span>
+    </button>`;
+  }
+  if (nextPhase) {
+    html += `<button class="phase-nav-btn next" onclick="showPhase(${currentIndex + 1})">
+      <span>${nextPhase.title}</span> <i class="fas fa-arrow-right"></i>
+    </button>`;
+  }
+  html += `</div>`;
   return html;
 }
 
@@ -926,18 +955,24 @@ function renderEntityGeneratorInline() {
 function renderStep(step) {
   let html = `<div class="step">`;
   if (step.title) html += `<h4>${step.title}</h4>`;
-  if (step.content) html += `<p>${step.content}</p>`;
+  if (step.content) {
+    let contentHtml = step.content.replace(/⚠️?/g, '<i class="fas fa-exclamation-triangle" style="color:var(--warning);font-size:0.7rem;"></i>');
+    html += `<p>${contentHtml}</p>`;
+  }
 
   if (step.code) {
     const lang = detectLang(step.code);
     html += `<div class="code-block">
-      <button class="copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copiar</button>
+      <span class="code-lang">${lang}</span>
+      <button class="copy-btn" onclick="copyCode(this)" title="Copiar"><i class="fas fa-copy"></i></button>
       <pre><code class="language-${lang}">${escapeHtml(step.code)}</code></pre>
     </div>`;
   }
 
   if (step.verify) {
-      html += `<div class="step"><h4><i class="fas fa-check-circle" style="color:var(--success);font-size:0.9rem;"></i> Verificar</h4><p>${step.verify.replace(/\n/g, '<br>')}</p></div>`;
+    let verifyHtml = step.verify.replace(/\n/g, '<br>');
+    verifyHtml = verifyHtml.replace(/☐/g, '<i class="far fa-square" style="margin-right:0.25rem;"></i>');
+    html += `<div class="step"><h4><i class="fas fa-check-circle" style="color:var(--success);font-size:0.9rem;"></i> Verificar</h4><p>${verifyHtml}</p></div>`;
   }
 
   if (step.isTable && step.headers && step.rows) {
@@ -999,10 +1034,11 @@ function copyCode(btn) {
   const pre = btn.nextElementSibling;
   const code = pre.textContent;
   navigator.clipboard.writeText(code).then(() => {
-    btn.innerHTML = '<i class="fas fa-check"></i> Copiado';
+    btn.innerHTML = '<i class="fas fa-check"></i>';
     btn.classList.add('copied');
+    showNotification('¡Copiado al portapapeles!', 'success');
     setTimeout(() => {
-      btn.innerHTML = '<i class="fas fa-copy"></i> Copiar';
+      btn.innerHTML = '<i class="fas fa-copy"></i>';
       btn.classList.remove('copied');
     }, 2000);
   }).catch(() => {
@@ -1096,7 +1132,7 @@ function renderEntityGenerator() {
     <div class="input-row">
       <div style="flex:2">
         <label class="field-label">Nombre de la entidad</label>
-        <input type="text" id="entity-input" placeholder="Ej: producto, cliente, tarea..." autocomplete="off">
+        <input type="text" id="entity-input" placeholder="Ej: producto, cliente, tarea..." autocomplete="off" value="${currentEntityName}">
       </div>
       <div style="flex:1">
         <label class="field-label">Motor de base de datos</label>
@@ -1262,7 +1298,8 @@ function renderGeneratedTabs(data) {
   tabs.forEach((tab, i) => {
     const lang = tab.id === 'sql' ? 'sql' : tab.id === 'env' || tab.id === 'deps' ? 'bash' : 'javascript';
     html += `<div class="code-block ${i === 0 ? 'active' : ''}" id="gen-${tab.id}">
-      <button class="copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copiar</button>
+      <span class="code-lang">${lang}</span>
+      <button class="copy-btn" onclick="copyCode(this)" title="Copiar"><i class="fas fa-copy"></i></button>
       <pre><code class="language-${lang}">${escapeHtml(tab.content)}</code></pre>
     </div>`;
   });
@@ -1276,6 +1313,37 @@ function switchGeneratedTab(btn, tabId) {
   document.querySelectorAll('#generated-result .code-block').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(`gen-${tabId}`).classList.add('active');
+}
+
+// ===== SYNC GUIDE ENTITY =====
+function syncGuideEntity(entityName) {
+  const container = document.getElementById('guide-container');
+  if (!container) return;
+
+  if (!container.hasAttribute('data-original-html')) {
+    container.setAttribute('data-original-html', container.innerHTML);
+  }
+
+  const originalHtml = container.getAttribute('data-original-html');
+  currentEntityName = entityName;
+  const entityUpper = entityName.toUpperCase();
+  const entityCap = entityName.charAt(0).toUpperCase() + entityName.slice(1).toLowerCase();
+  const entityLower = entityName.toLowerCase();
+
+  if (!entityName.trim()) {
+    container.innerHTML = originalHtml;
+    highlightBlocks(container);
+    return;
+  }
+
+  let html = originalHtml;
+  html = html.replace(/PRODUCTO/g, entityUpper);
+  html = html.replace(/Producto/g, entityCap);
+  html = html.replace(/producto/g, entityLower);
+  html = html.replace(/\[REEMPLAZAR\]/g, entityCap);
+
+  container.innerHTML = html;
+  highlightBlocks(container);
 }
 
 // ===== NOTIFICATIONS =====
@@ -1314,6 +1382,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('search-input').addEventListener('input', searchGuide);
 
   showDashboard();
+
+  document.addEventListener('input', function(e) {
+    if (e.target && e.target.id === 'entity-input') {
+      syncGuideEntity(e.target.value.trim());
+    }
+  });
 
   addChecklistProgress();
 });
