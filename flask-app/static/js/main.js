@@ -341,60 +341,58 @@ module.exports = router;`
   {
     id: 'fase-6',
     number: 7,
-    title: 'Pruebas con Postman',
+    title: 'Pruebas con REST Client',
     icon: 'fa-paper-plane',
     steps: [
       {
-        title: 'CREAR (POST)',
-        isTable: true,
-        headers: ['Config', 'Valor'],
-        rows: [
-          ['Método', 'POST'],
-          ['URL', 'http://localhost:3000/api/productos'],
-          ['Headers', 'Content-Type: application/json'],
-          ['Body', '{ "nombre": "Laptop", "precio": 2500000, "cantidad": 10, "estado": "ACTIVO" }'],
-          ['Respuesta', '201 Created + datos del registro']
-        ]
+        title: '¿Qué es REST Client?',
+        content: 'Extensión de VS Code que permite probar APIs HTTP desde archivos <code>.http</code>. Crea <code>backend/entidad.http</code> <span class="replace-marker">⚠️ REEMPLAZA</span> "productos" por tu entidad en plural:'
       },
       {
-        title: 'LISTAR (GET)',
-        isTable: true,
-        headers: ['Config', 'Valor'],
-        rows: [
-          ['Método', 'GET'],
-          ['URL', 'http://localhost:3000/api/productos'],
-          ['Respuesta', '200 OK → { "data": [...] }']
-        ]
+        title: 'Ejemplo de archivo .http',
+        code: `### LISTAR TODOS (GET)
+GET http://localhost:3000/api/productos
+
+### OBTENER POR ID (GET)
+GET http://localhost:3000/api/productos/1
+
+### CREAR (POST)
+POST http://localhost:3000/api/productos
+Content-Type: application/json
+
+{
+  "nombre": "Laptop",
+  "precio": 2500000,
+  "cantidad": 10,
+  "estado": "ACTIVO"
+}
+
+### ACTUALIZAR (PUT)
+PUT http://localhost:3000/api/productos/1
+Content-Type: application/json
+
+{
+  "nombre": "Laptop Pro",
+  "precio": 3000000
+}
+
+### ELIMINAR (DELETE)
+DELETE http://localhost:3000/api/productos/1`
       },
       {
-        title: 'OBTENER POR ID (GET)',
-        isTable: true,
-        headers: ['Config', 'Valor'],
-        rows: [
-          ['Método', 'GET'],
-          ['URL', 'http://localhost:3000/api/productos/1'],
-          ['Respuesta', '200 OK → { "data": { ... } }']
-        ]
+        title: 'Cómo usar',
+        content: '1. Instala la extensión <strong>REST Client</strong> en VS Code<br>2. Abre el archivo <code>entidad.http</code><br>3. Haz clic en <strong>"Send Request"</strong> que aparece arriba de cada bloque <code>###</code><br>4. Revisa la respuesta en el panel que se abre a la derecha'
       },
       {
-        title: 'ACTUALIZAR (PUT)',
+        title: 'Endpoints del CRUD',
         isTable: true,
-        headers: ['Config', 'Valor'],
+        headers: ['Endpoint', 'Método', 'Descripción'],
         rows: [
-          ['Método', 'PUT'],
-          ['URL', 'http://localhost:3000/api/productos/1'],
-          ['Body', '{ "nombre": "Laptop Pro", "precio": 3000000 }'],
-          ['Respuesta', '200 OK → { "mensaje": "Actualizado correctamente" }']
-        ]
-      },
-      {
-        title: 'ELIMINAR (DELETE)',
-        isTable: true,
-        headers: ['Config', 'Valor'],
-        rows: [
-          ['Método', 'DELETE'],
-          ['URL', 'http://localhost:3000/api/productos/1'],
-          ['Respuesta', '200 OK → { "mensaje": "Eliminado correctamente" }']
+          ['/api/productos', 'GET', 'Listar todos los registros'],
+          ['/api/productos/1', 'GET', 'Obtener un registro por ID'],
+          ['/api/productos', 'POST', 'Crear un nuevo registro'],
+          ['/api/productos/1', 'PUT', 'Actualizar un registro existente'],
+          ['/api/productos/1', 'DELETE', 'Eliminar un registro']
         ]
       }
     ]
@@ -1140,10 +1138,12 @@ function togglePhase(el) {
 }
 
 function copyCode(btn) {
-  const pre = btn.nextElementSibling;
-  const code = pre.textContent;
+  const block = btn.closest('.code-block');
+  const pre = block ? block.querySelector('pre') : btn.nextElementSibling;
+  const code = pre ? pre.textContent : '';
+  if (!code) return;
   navigator.clipboard.writeText(code).then(() => {
-    btn.innerHTML = '<i class="fas fa-check"></i>';
+    btn.innerHTML = '<i class="fas fa-check" style="color:#22c55e"></i>';
     btn.classList.add('copied');
     showNotification('¡Copiado al portapapeles!', 'success');
     setTimeout(() => {
@@ -1269,8 +1269,8 @@ const DEFAULT_FIELDS = [
 ];
 
 const TYPE_OPTIONS = ['INTEGER','BIGINT','VARCHAR','TEXT','DECIMAL','DATE','TIMESTAMP','BOOLEAN'];
-const ENGINES = ['mysql','postgres','sqlserver','oracle'];
-const ENGINE_LABELS = { mysql: 'MySQL', postgres: 'PostgreSQL', sqlserver: 'SQL Server', oracle: 'Oracle DB' };
+const ENGINES = ['mysql','postgres','sqlserver','oracle','sqlite'];
+const ENGINE_LABELS = { mysql: 'MySQL', postgres: 'PostgreSQL', sqlserver: 'SQL Server', oracle: 'Oracle DB', sqlite: 'SQLite' };
 
 let fieldCount = 0;
 
@@ -1290,6 +1290,11 @@ function renderEntityGenerator() {
           ${ENGINES.map(e => `<option value="${e}">${ENGINE_LABELS[e]}</option>`).join('')}
         </select>
       </div>
+    </div>
+    <div class="input-row">
+      <button id="apply-entity-btn" class="btn-apply" onclick="applyEntityToGuide()" title="Reemplaza PRODUCTO/Producto/producto en la guía por tu entidad">
+        <i class="fas fa-check"></i> Aplicar Entidad a la Guía
+      </button>
     </div>
 
     <div class="fields-section">
@@ -1431,6 +1436,7 @@ function renderGeneratedTabs(data) {
     { id: 'angular-model', label: 'Modelo Angular', content: data.angularModel },
     { id: 'angular-service', label: 'Service Angular', content: data.angularService },
     { id: 'seed', label: 'Faker (seed)', content: data.seed },
+    { id: 'http-client', label: 'REST Client (.http)', content: data.httpClient },
     { id: 'env', label: '.env', content: data.env },
     { id: 'deps', label: 'Dependencias', content: data.dependencies }
   ];
@@ -1496,6 +1502,68 @@ function syncGuideEntity(entityName) {
 
   container.innerHTML = html;
   highlightBlocks(container);
+}
+
+// ===== APPLY ENTITY TO GUIDE =====
+function applyEntityToGuide() {
+  const entity = document.getElementById('entity-input').value.trim().toLowerCase();
+  if (!entity) {
+    showNotification('Primero ingresa el nombre de la entidad', 'error');
+    return;
+  }
+
+  const container = document.getElementById('guide-container');
+  if (!container) {
+    showNotification('Abre una sección de la guía primero (ej. Fase 2)', 'info');
+    return;
+  }
+
+  if (!container.hasAttribute('data-original-html')) {
+    container.setAttribute('data-original-html', container.innerHTML);
+  }
+
+  const originalHtml = container.getAttribute('data-original-html');
+  currentEntityName = entity;
+
+  const entityUpper = entity.toUpperCase();
+  const entityCap = entity.charAt(0).toUpperCase() + entity.slice(1);
+  const entityLower = entity.toLowerCase();
+  const entityPlural = pluralizeWord(entity);
+
+  let html = originalHtml;
+  html = html.replace(/PRODUCTOS/g, entityUpper + 'S');
+  html = html.replace(/PRODUCTO/g, entityUpper);
+  html = html.replace(/Productos/g, entityCap + 's');
+  html = html.replace(/Producto/g, entityCap);
+  html = html.replace(/productos/g, entityLower + 's');
+  html = html.replace(/producto/g, entityLower);
+  html = html.replace(/bd_productos/g, 'bd_' + entityLower + 's');
+  html = html.replace(/\[REEMPLAZAR\]/g, entityCap);
+  html = html.replace(/\s*←\s*REEMPLAZAR/g, '');
+
+  container.innerHTML = html;
+  highlightBlocks(container);
+  ensureCopyButtons(container);
+  showNotification(`Guía actualizada a "${entityCap}"`, 'success');
+}
+
+function pluralizeWord(word) {
+  if (word.endsWith('s') || word.endsWith('x') || word.endsWith('z') || word.endsWith('ch') || word.endsWith('sh')) return word + 'es';
+  if (word.endsWith('y')) return word.slice(0, -1) + 'ies';
+  return word + 's';
+}
+
+// ===== ENSURE COPY BUTTONS ON ALL CODE BLOCKS =====
+function ensureCopyButtons(container) {
+  container.querySelectorAll('.code-block').forEach(block => {
+    if (block.querySelector('.copy-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.title = 'Copiar';
+    btn.innerHTML = '<i class="fas fa-copy"></i>';
+    btn.onclick = function() { copyCode(this); };
+    block.appendChild(btn);
+  });
 }
 
 // ===== NOTIFICATIONS =====
