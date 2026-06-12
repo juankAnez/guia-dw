@@ -89,18 +89,6 @@ TYPE_MAP = {
     'BOOLEAN': {'mysql': 'TINYINT(1)', 'postgres': 'BOOLEAN', 'sqlserver': 'BIT', 'oracle': 'NUMBER(1)', 'sqlite': 'INTEGER'}
 }
 
-SEQUELIZE_TYPE_MAP = {
-    'INTEGER': 'DataTypes.INTEGER',
-    'BIGINT': 'DataTypes.BIGINT',
-    'VARCHAR': 'DataTypes.STRING({len})',
-    'TEXT': 'DataTypes.TEXT',
-    'DECIMAL': 'DataTypes.DECIMAL({len})',
-    'DATE': 'DataTypes.DATEONLY',
-    'TIMESTAMP': 'DataTypes.DATE',
-    'BOOLEAN': 'DataTypes.BOOLEAN'
-}
-
-
 def pluralize(name):
     if name.endswith(('s', 'x', 'z', 'ch', 'sh')):
         return name + 'es'
@@ -279,117 +267,424 @@ module.exports = sequelize;'''
 
 
 def generate_model(entity, plural, capitalized, fields, engine):
-    field_defs = []
-    field_names = []
+    allowed = []
     for f in fields:
         n = f['name']
         if n == 'id':
             continue
-        t = f['type']
-        l = f.get('length', '')
-        nn = f.get('notNull', False)
-        dflt = f.get('default', '')
+        allowed.append(f"'{n}'")
 
-        st = SEQUELIZE_TYPE_MAP.get(t, 'DataTypes.STRING(255)')
-        if l and '{len}' in st:
-            st = st.replace('{len}', l)
-        elif '{len}' in st:
-            st = st.replace('{len}', '255')
+    allowed_str = ', '.join(allowed)
 
-        opts = [st]
-        if nn:
-            opts.append('allowNull: false')
-        if dflt:
-            opts.append(f'defaultValue: {dflt}')
+    return f'''const pool = require('../config/db');
 
-        field_defs.append(f'    {n}: {{ {", ".join(opts)} }}')
-        field_names.append(f"'{n}'")
+const tableName = '{plural}';
+const allowedFields = [{allowed_str}];
 
-    field_code = ',\n'.join(field_defs)
-    field_list = ', '.join(field_names)
+const {capitalized}Model = {{
+  getAll: async () => {{
+    const [rows] = await pool.query(`SELECT * FROM ${{tableName}}`);
+    return rows;
+  }},
 
-    if engine == 'sqlite':
-        db_config = f'''const sequelize = new Sequelize({{
-  dialect: 'sqlite',
-  storage: process.env.DB_STORAGE || './database.sqlite',
-  logging: process.env.NODE_ENV === 'development' ? console.log : false
-}});'''
-    else:
-        if engine == 'mysql':
-            dialect = "'mysql'"
-            extra_opts = "logging: process.env.NODE_ENV === 'development' ? console.log : false"
-        elif engine == 'postgres':
-            dialect = "'postgres'"
-            extra_opts = "logging: process.env.NODE_ENV === 'development' ? console.log : false"
-        elif engine == 'sqlserver':
-            dialect = "'mssql'"
-            extra_opts = "logging: process.env.NODE_ENV === 'development' ? console.log : false, dialectOptions: { encrypt: false, trustServerCertificate: true }"
-        elif engine == 'oracle':
-            dialect = "'oracle'"
-            extra_opts = "logging: process.env.NODE_ENV === 'development' ? console.log : false"
+  getById: async (id) => {{
+    const [rows] = await pool.query(`SELECT * FROM ${{tableName}} WHERE id = ?`, [id]);
+    return rows[0];
+  }},
 
-        db_config = f'''const sequelize = new Sequelize(
-  process.env.DB_NAME || '{entity}',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || '',
-  {{
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT) || {ENGINES[engine]['port']},
-    dialect: {dialect},
-    {extra_opts}
+  create: async (data) => {{
+    const [result] = await pool.query(`INSERT INTO ${{tableName}} SET ?`, [data]);
+    return {{ id: result.insertId, ...data }};
+  }},
+
+  update: async (id, data) => {{
+    await pool.query(`UPDATE ${{tableName}} SET ? WHERE id = ?`, [data, id]);
+    return {{ id, ...data }};
+  }},
+
+  delete: async (id) => {{
+    const [result] = await pool.query(`DELETE FROM ${{tableName}} WHERE id = ?`, [id]);
+    return result.affectedRows > 0;
   }}
-);'''
+}};
 
-    return f'''const {{ DataTypes, Sequelize }} = require('sequelize');
-require('dotenv').config();
-
-{db_config}
-
-const {capitalized} = sequelize.define('{capitalized}', {{
-{field_code}
-}}, {{
-  tableName: '{plural}',
-  timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at'
-}});
-
-module.exports = {capitalized};'''
+module.exports = {capitalized}Model;'''
 
 
-def generate_controller(entity, capitalized):
-    return f'''const {capitalized} = require('../models/{entity}.model');
+def generate_controller(entity, capitalized, fields):
+    field_names = []
+    required_checks = []
+    create_obj_fields = []
+    for f in fields:
+        n = f['name']
+        if n == 'id':
+            continue
+        field_names.append(n)
+        create_obj_fields.append(n)
+        if f.get('notNull', False):
+            required_checks.append(f"if (!{n}) {{\n        return res.status(400).json({{ error: '{n.capitalize()} es obligatorio' }});\n      }}")
+
+    fields_destructure = ', '.join(field_names)
+    create_obj = ', '.join(create_obj_fields)
+    required_block = '\n      '.join(required_checks) if required_checks else ''
+
+    return f'''const {capitalized}Model = require('../models/{entity}.model');
 
 const {capitalized}Controller = {{
   getAll: async (req, res) => {{
-    try {{ const items = await {capitalized}.findAll(); res.json({{ data: items }}); }}
-    catch (error) {{ res.status(500).json({{ error: 'Error al obtener registros', detalle: error.message }}); }}
+    try {{
+      const items = await {capitalized}Model.getAll();
+      res.json({{ data: items }});
+    }} catch (error) {{
+      res.status(500).json({{ error: 'Error al obtener registros' }});
+    }}
   }},
+
   getById: async (req, res) => {{
-    try {{ const {{ id }} = req.params; const item = await {capitalized}.findByPk(id);
-      if (!item) return res.status(404).json({{ error: 'No encontrado' }}); res.json({{ data: item }}); }}
-    catch (error) {{ res.status(500).json({{ error: 'Error al obtener' }}); }}
+    try {{
+      const {{ id }} = req.params;
+      const item = await {capitalized}Model.getById(id);
+      if (!item) return res.status(404).json({{ error: 'No encontrado' }});
+      res.json({{ data: item }});
+    }} catch (error) {{
+      res.status(500).json({{ error: 'Error al obtener' }});
+    }}
   }},
+
   create: async (req, res) => {{
-    try {{ const newItem = await {capitalized}.create(req.body);
-      res.status(201).json({{ data: newItem, mensaje: 'Creado correctamente' }}); }}
-    catch (error) {{ res.status(500).json({{ error: 'Error al crear', detalle: error.message }}); }}
+    try {{
+      const {{ {fields_destructure} }} = req.body;
+      {required_block}
+      const newItem = await {capitalized}Model.create({{ {create_obj} }});
+      res.status(201).json({{ data: newItem, mensaje: 'Creado correctamente' }});
+    }} catch (error) {{
+      res.status(500).json({{ error: 'Error al crear' }});
+    }}
   }},
+
   update: async (req, res) => {{
-    try {{ const {{ id }} = req.params; const item = await {capitalized}.findByPk(id);
+    try {{
+      const {{ id }} = req.params;
+      const item = await {capitalized}Model.getById(id);
       if (!item) return res.status(404).json({{ error: 'No encontrado' }});
-      await item.update(req.body); res.json({{ data: item, mensaje: 'Actualizado correctamente' }}); }}
-    catch (error) {{ res.status(500).json({{ error: 'Error al actualizar' }}); }}
+      await {capitalized}Model.update(id, req.body);
+      res.json({{ mensaje: 'Actualizado correctamente' }});
+    }} catch (error) {{
+      res.status(500).json({{ error: 'Error al actualizar' }});
+    }}
   }},
+
   delete: async (req, res) => {{
-    try {{ const {{ id }} = req.params; const item = await {capitalized}.findByPk(id);
-      if (!item) return res.status(404).json({{ error: 'No encontrado' }});
-      await item.destroy(); res.json({{ mensaje: 'Eliminado correctamente' }}); }}
-    catch (error) {{ res.status(500).json({{ error: 'Error al eliminar' }}); }}
+    try {{
+      const {{ id }} = req.params;
+      const eliminado = await {capitalized}Model.delete(id);
+      if (!eliminado) return res.status(404).json({{ error: 'No encontrado' }});
+      res.json({{ mensaje: 'Eliminado correctamente' }});
+    }} catch (error) {{
+      res.status(500).json({{ error: 'Error al eliminar' }});
+    }}
   }}
 }};
 
 module.exports = {capitalized}Controller;'''
+
+
+def generate_angular_model(entity, capitalized, fields):
+    interfaces = []
+    for f in fields:
+        n = f['name']
+        if n == 'id':
+            interfaces.append(f'  {n}?: number;')
+            continue
+        t = f['type']
+        if t in ('INTEGER', 'BIGINT', 'DECIMAL'):
+            interfaces.append(f'  {n}: number;')
+        elif t == 'BOOLEAN':
+            interfaces.append(f'  {n}: boolean;')
+        else:
+            interfaces.append(f'  {n}: string;')
+    return f'export interface {capitalized} {{\n' + '\n'.join(interfaces) + '\n}'
+
+
+def generate_angular_app_routes(entity, capitalized, plural):
+    return f'''import {{ Routes }} from '@angular/router';
+
+export const routes: Routes = [
+  {{ path: '', redirectTo: '/{plural}', pathMatch: 'full' }},
+  {{
+    path: '{plural}',
+    loadChildren: () => import('./components/{entity}/{entity}.routes').then(m => m.routes)
+  }},
+  {{ path: '**', redirectTo: '/{plural}' }}
+];'''
+
+
+def generate_angular_component_routes(entity, capitalized):
+    return f'''import {{ Routes }} from '@angular/router';
+import {{ {capitalized}List }} from './{entity}-list/{entity}-list';
+import {{ {capitalized}Form }} from './{entity}-form/{entity}-form';
+
+export const routes: Routes = [
+  {{ path: '', component: {capitalized}List }},
+  {{ path: 'new', component: {capitalized}Form }},
+  {{ path: 'edit/:id', component: {capitalized}Form }}
+];'''
+
+
+def generate_angular_list_component(entity, capitalized, fields):
+    confirm_field = ''
+    for f in fields:
+        if f['name'] != 'id':
+            confirm_field = f['name']
+            break
+
+    return f'''import {{ Component, OnInit }} from '@angular/core';
+import {{ CommonModule }} from '@angular/common';
+import {{ RouterModule }} from '@angular/router';
+import {{ TableModule }} from 'primeng/table';
+import {{ ButtonModule }} from 'primeng/button';
+import {{ ConfirmDialogModule }} from 'primeng/confirmdialog';
+import {{ ToastModule }} from 'primeng/toast';
+import {{ ConfirmationService, MessageService }} from 'primeng/api';
+import {{ {capitalized}Service }} from '../../services/{entity}.service';
+import {{ {capitalized} }} from '../../models/{entity}';
+
+@Component({{
+  selector: 'app-{entity}-list',
+  standalone: true,
+  imports: [CommonModule, RouterModule, TableModule, ButtonModule, ConfirmDialogModule, ToastModule],
+  providers: [ConfirmationService, MessageService],
+  templateUrl: './{entity}-list.html'
+}})
+export class {capitalized}List implements OnInit {{
+  items: {capitalized}[] = [];
+  loading = false;
+
+  constructor(
+    private service: {capitalized}Service,
+    private confirmationService: ConfirmationService,
+    private messageService: MessageService
+  ) {{}}
+
+  ngOnInit(): void {{ this.load(); }}
+
+  load(): void {{
+    this.loading = true;
+    this.service.getAll().subscribe({{
+      next: (res) => {{ this.items = res.data; this.loading = false; }},
+      error: () => {{ this.loading = false; }}
+    }});
+  }}
+
+  confirmDelete(item: {capitalized}): void {{
+    this.confirmationService.confirm({{
+      message: `¿Eliminar "${{item.{confirm_field}}}"?`,
+      header: 'Confirmar',
+      acceptLabel: 'Eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => this.delete(item.id!)
+    }});
+  }}
+
+  delete(id: number): void {{
+    this.service.delete(id).subscribe({{
+      next: () => {{ this.load(); this.messageService.add({{ severity: 'success', summary: 'Eliminado' }}); }},
+      error: () => this.messageService.add({{ severity: 'error', summary: 'Error' }})
+    }});
+  }}
+}}'''
+
+
+def generate_angular_list_template(entity, capitalized, fields):
+    non_id = [f for f in fields if f['name'] != 'id']
+    header_cells = '\n'.join(
+        f'        <th pSortableColumn="{f["name"]}">{f["name"].capitalize()} <p-sortIcon field="{f["name"]}"></p-sortIcon></th>'
+        for f in non_id
+    )
+    body_cells = '\n'.join(
+        f'        <td>{{{{ item.{f["name"]} }}}}</td>'
+        for f in non_id
+    )
+    colspan = len(non_id) + 2
+
+    return f'''<div class="card p-6">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-2xl font-bold">Listado de {capitalized}s</h2>
+    <p-button label="Nuevo" icon="pi pi-plus" routerLink="/{entity}/new"></p-button>
+  </div>
+
+  <p-table [value]="items" [loading]="loading" [paginator]="true" [rows]="10"
+    [rowsPerPageOptions]="[5,10,25,50]" dataKey="id" [tableStyle]={{{{'min-width':'50rem'}}}}>
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="id">ID <p-sortIcon field="id"></p-sortIcon></th>
+{header_cells}
+        <th class="text-center">Acciones</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-item>
+      <tr>
+        <td>{{{{ item.id }}}}</td>
+{body_cells}
+        <td class="text-center">
+          <p-button icon="pi pi-pencil" [routerLink]="['/{entity}/edit', item.id]"
+            styleClass="p-button-rounded p-button-text p-button-warning" pTooltip="Editar"></p-button>
+          <p-button icon="pi pi-trash" (onClick)="confirmDelete(item)"
+            styleClass="p-button-rounded p-button-text p-button-danger" pTooltip="Eliminar"></p-button>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="{colspan}" class="text-center p-4">No hay registros</td></tr>
+    </ng-template>
+  </p-table>
+</div>
+<p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>'''
+
+
+def generate_angular_form_component(entity, capitalized, fields):
+    control_lines = []
+    for f in fields:
+        n = f['name']
+        if n == 'id':
+            continue
+        nn = f.get('notNull', False)
+        t = f['type']
+        validators = []
+        if nn:
+            validators.append('Validators.required')
+        if t in ('INTEGER', 'BIGINT', 'DECIMAL'):
+            if t in ('INTEGER', 'BIGINT'):
+                validators.append('Validators.min(0)')
+            else:
+                validators.append('Validators.min(1)')
+            v = ', '.join(validators)
+            if v:
+                control_lines.append(f"    {n}: [0, [{v}]]")
+            else:
+                control_lines.append(f"    {n}: [0]")
+        else:
+            if t == 'VARCHAR':
+                validators.append('Validators.minLength(2)')
+            v = ', '.join(validators)
+            if v:
+                control_lines.append(f"    {n}: ['', [{v}]]")
+            else:
+                control_lines.append(f"    {n}: ['']")
+
+    controls = ',\n'.join(control_lines)
+
+    return f'''import {{ Component, OnInit }} from '@angular/core';
+import {{ CommonModule }} from '@angular/common';
+import {{ FormBuilder, ReactiveFormsModule, Validators }} from '@angular/forms';
+import {{ ActivatedRoute, Router, RouterModule }} from '@angular/router';
+import {{ ButtonModule }} from 'primeng/button';
+import {{ InputTextModule }} from 'primeng/inputtext';
+import {{ InputNumberModule }} from 'primeng/inputnumber';
+import {{ SelectModule }} from 'primeng/select';
+import {{ ToastModule }} from 'primeng/toast';
+import {{ MessageService }} from 'primeng/api';
+import {{ {capitalized}Service }} from '../../services/{entity}.service';
+
+@Component({{
+  selector: 'app-{entity}-form',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, ButtonModule,
+    InputTextModule, InputNumberModule, SelectModule, ToastModule],
+  providers: [MessageService],
+  templateUrl: './{entity}-form.html'
+}})
+export class {capitalized}Form implements OnInit {{
+  form = this.fb.group({{
+{controls}
+  }});
+
+  isEdit = false;
+  id?: number;
+  loading = false;
+
+  constructor(
+    private fb: FormBuilder,
+    private service: {capitalized}Service,
+    private route: ActivatedRoute,
+    private router: Router,
+    private messageService: MessageService
+  ) {{}}
+
+  ngOnInit(): void {{
+    const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam) {{ this.isEdit = true; this.id = +idParam; this.loadItem(); }}
+  }}
+
+  loadItem(): void {{
+    this.service.getById(this.id!).subscribe({{
+      next: (res) => this.form.patchValue(res.data)
+    }});
+  }}
+
+  submit(): void {{
+    if (this.form.invalid) return;
+    this.loading = true;
+    const obs = this.isEdit
+      ? this.service.update(this.id!, this.form.value as any)
+      : this.service.create(this.form.value as any);
+    obs.subscribe({{
+      next: () => {{
+        this.messageService.add({{ severity: 'success', summary: 'Éxito',
+          detail: `Registro ${{this.isEdit ? 'actualizado' : 'creado'}} correctamente` }});
+        setTimeout(() => this.router.navigate(['/{entity}']), 1000);
+      }},
+      error: () => {{ this.loading = false; }}
+    }});
+  }}
+
+  cancel(): void {{ this.router.navigate(['/{entity}']); }}
+}}'''
+
+
+def generate_angular_form_template(entity, capitalized, fields):
+    field_groups = []
+    non_id = [f for f in fields if f['name'] != 'id']
+    half = (len(non_id) + 1) // 2
+
+    def input_html(f):
+        n = f['name']
+        t = f['type']
+        label = n.capitalize()
+        required = f.get('notNull', False)
+        asterisk = ' *' if required else ''
+        required_class = ' required' if required else ''
+
+        if t in ('INTEGER', 'BIGINT', 'DECIMAL'):
+            return f'''        <div>
+            <label class="block font-semibold mb-1{required_class}">{label}{asterisk}</label>
+            <p-inputNumber formControlName="{n}" [min]="0" class="w-full" />
+          </div>'''
+        else:
+            return f'''        <div>
+            <label class="block font-semibold mb-1{required_class}">{label}{asterisk}</label>
+            <input pInputText formControlName="{n}" class="w-full" />
+          </div>'''
+
+    inputs = '\n'.join(input_html(f) for f in non_id)
+
+    return f'''<div class="max-w-2xl mx-auto p-6">
+  <div class="bg-white rounded-lg shadow-lg p-8">
+    <h2 class="text-2xl font-bold mb-6">{{{{ isEdit ? 'Editar' : 'Nuevo' }}}} {capitalized}</h2>
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="flex flex-col gap-4">
+{inputs}
+      </div>
+      <div class="flex justify-center gap-4 mt-8">
+        <p-button type="submit" label="Guardar" icon="pi pi-save" [loading]="loading" [disabled]="form.invalid"></p-button>
+        <p-button type="button" label="Cancelar" icon="pi pi-times" severity="secondary" (onClick)="cancel()"></p-button>
+      </div>
+    </form>
+  </div>
+</div>
+<p-toast></p-toast>'''
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -467,7 +762,7 @@ def generate_code():
     sql = generate_sql(entity, plural, fields, engine)
     db_config = generate_db_config(entity, engine)
     model = generate_model(entity, plural, capitalized, fields, engine)
-    controller = generate_controller(entity, capitalized)
+    controller = generate_controller(entity, capitalized, fields)
 
     routes = f'''const router = require('express').Router();
 const controller = require('../controllers/{entity}.controller');
@@ -480,22 +775,7 @@ router.delete('/{plural}/:id', controller.delete);
 
 module.exports = router;'''
 
-    angular_fields = []
-    ang_interfaces = []
-    for f in fields:
-        n = f['name']
-        if n == 'id':
-            ang_interfaces.append(f'  {n}?: number;')
-            continue
-        t = f['type']
-        if t in ('INTEGER', 'BIGINT', 'DECIMAL'):
-            ang_interfaces.append(f'  {n}: number;')
-        elif t == 'BOOLEAN':
-            ang_interfaces.append(f'  {n}: boolean;')
-        else:
-            ang_interfaces.append(f'  {n}: string;')
-
-    angular_model = f'''export interface {capitalized} {{\n''' + '\n'.join(ang_interfaces) + '\n}'
+    angular_model = generate_angular_model(entity, capitalized, fields)
 
     angular_service = f'''import {{ Injectable }} from '@angular/core';
 import {{ HttpClient }} from '@angular/common/http';
@@ -512,8 +792,15 @@ export class {capitalized}Service {{
   getById(id: number): Observable<{{ data: {capitalized} }}> {{ return this.http.get<{{ data: {capitalized} }}>(`${{this.apiUrl}}/${{id}}`); }}
   create(data: {capitalized}): Observable<any> {{ return this.http.post(this.apiUrl, data); }}
   update(id: number, data: {capitalized}): Observable<any> {{ return this.http.put(`${{this.apiUrl}}/${{id}}`, data); }}
-  delete(id: number, data: {capitalized}): Observable<any> {{ return this.http.delete(`${{this.apiUrl}}/${{id}}`); }}
+  delete(id: number): Observable<any> {{ return this.http.delete(`${{this.apiUrl}}/${{id}}`); }}
 }}'''
+
+    angular_app_routes = generate_angular_app_routes(entity, capitalized, plural)
+    angular_component_routes = generate_angular_component_routes(entity, capitalized)
+    angular_list_component = generate_angular_list_component(entity, capitalized, fields)
+    angular_list_template = generate_angular_list_template(entity, capitalized, fields)
+    angular_form_component = generate_angular_form_component(entity, capitalized, fields)
+    angular_form_template = generate_angular_form_template(entity, capitalized, fields)
 
     seed = generate_seed(entity, capitalized, fields, engine)
     env_config = generate_env(entity, engine)
@@ -536,6 +823,12 @@ export class {capitalized}Service {{
         'routes': routes,
         'angularModel': angular_model,
         'angularService': angular_service,
+        'angularAppRoutes': angular_app_routes,
+        'angularComponentRoutes': angular_component_routes,
+        'angularListComponent': angular_list_component,
+        'angularListTemplate': angular_list_template,
+        'angularFormComponent': angular_form_component,
+        'angularFormTemplate': angular_form_template,
         'seed': seed,
         'httpClient': http_client
     })

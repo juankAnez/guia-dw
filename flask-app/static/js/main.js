@@ -971,6 +971,11 @@ function renderStep(step) {
 
   if (step.code) {
     const lang = detectLang(step.code);
+    const hasGenKey = step.title && STEP_GEN_KEY_MAP[step.title];
+    // Steps without content but with matching key get a standalone replace button
+    if (hasGenKey && !step.content) {
+      html += `<p><button class="replace-marker replace-marker-btn" onclick="toggleReplaceMarker(this)" title="Click para reemplazar con tu entidad"><i class="fas fa-exclamation-triangle" style="color:var(--warning);font-size:0.7rem;"></i> REEMPLAZA</button></p>`;
+    }
     html += `<div class="code-block" data-original-code="${escapeAttr(step.code)}">
       <span class="code-lang">${lang}</span>
       <button class="copy-btn" onclick="copyCode(this)" title="Copiar"><i class="fas fa-copy"></i></button>
@@ -1011,7 +1016,14 @@ const STEP_GEN_KEY_MAP = {
   'Plantilla del modelo': 'model',
   'Plantilla del controlador': 'controller',
   'Plantilla de rutas': 'routes',
-  'Servicio HTTP': 'angularService'
+  'Servicio HTTP': 'angularService',
+  'Modelo Angular': 'angularModel',
+  'Rutas de Angular (app.routes.ts)': 'angularAppRoutes',
+  'producto.routes.ts': 'angularComponentRoutes',
+  'producto-list.ts': 'angularListComponent',
+  'producto-list.html': 'angularListTemplate',
+  'producto-form.ts': 'angularFormComponent',
+  'producto-form.html': 'angularFormTemplate'
 };
 
 const GEN_KEY_LANG = {
@@ -1020,7 +1032,14 @@ const GEN_KEY_LANG = {
   'model': 'javascript',
   'controller': 'javascript',
   'routes': 'javascript',
-  'angularService': 'javascript'
+  'angularService': 'typescript',
+  'angularModel': 'typescript',
+  'angularAppRoutes': 'typescript',
+  'angularComponentRoutes': 'typescript',
+  'angularListComponent': 'typescript',
+  'angularListTemplate': 'html',
+  'angularFormComponent': 'typescript',
+  'angularFormTemplate': 'html'
 };
 
 // ===== TOGGLE REPLACE MARKER =====
@@ -1061,7 +1080,7 @@ function toggleReplaceMarker(btn) {
   }
 
   if (isShowingOriginal) {
-    // Try to use generated code first (full fields + types)
+    // Use generated code when available (full fields + types, guide-matching structure)
     if (generatedEntityData && genKey && generatedEntityData[genKey]) {
       const generated = generatedEntityData[genKey];
       const lang = GEN_KEY_LANG[genKey] || detectLang(generated);
@@ -1522,6 +1541,12 @@ function applyEntityToGuide() {
     container.setAttribute('data-original-html', container.innerHTML);
   }
 
+  // Save original codes before HTML string replacements corrupt them
+  const savedOriginalCodes = [];
+  container.querySelectorAll('.code-block').forEach(block => {
+    savedOriginalCodes.push(block.getAttribute('data-original-code'));
+  });
+
   const originalHtml = container.getAttribute('data-original-html');
   currentEntityName = entity;
 
@@ -1542,6 +1567,12 @@ function applyEntityToGuide() {
   html = html.replace(/\s*←\s*REEMPLAZAR/g, '');
 
   container.innerHTML = html;
+  // Restore original data-original-code after string replacement corrupted them
+  container.querySelectorAll('.code-block').forEach((block, i) => {
+    if (savedOriginalCodes[i]) {
+      block.setAttribute('data-original-code', savedOriginalCodes[i]);
+    }
+  });
   highlightBlocks(container);
   ensureCopyButtons(container);
   showNotification(`Guía actualizada a "${entityCap}"`, 'success');
