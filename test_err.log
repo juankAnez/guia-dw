@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\Proyectos\guia-dw\flask-app\app.py", line 5, in <module>
+    from whitenoise import WhiteNoise
+ModuleNotFoundError: No module named 'whitenoise'

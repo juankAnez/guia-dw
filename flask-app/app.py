@@ -2,8 +2,10 @@ import sqlite3
 import os
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from whitenoise import WhiteNoise
 
 app = Flask(__name__)
+app.wsgi_app = WhiteNoise(app.wsgi_app, root=os.path.join(os.path.dirname(__file__), 'static'), prefix='static/')
 app.secret_key = os.environ.get('SECRET_KEY', 'guia-dw-secret-key-change-in-production')
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'visitas.db')
@@ -936,3 +938,4 @@ if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
