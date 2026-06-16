@@ -121,8 +121,7 @@ const phases = [
         code: 'PORT=4000\n\nDB_ENGINE=mysql      # mysql | postgres | sqlserver | oracle | sqlite\n\n# MySQL\nMYSQL_HOST=localhost\nMYSQL_USER=root\nMYSQL_PASSWORD=\nMYSQL_NAME=bd_clientes\nMYSQL_PORT=3306\n\n# PostgreSQL\nPOSTGRES_HOST=localhost\nPOSTGRES_USER=postgres\nPOSTGRES_PASSWORD=\nPOSTGRES_NAME=bd_clientes\nPOSTGRES_PORT=5432\n\n# SQL Server\nMSSQL_HOST=localhost\nMSSQL_USER=sa\nMSSQL_PASSWORD=\nMSSQL_NAME=bd_clientes\nMSSQL_PORT=1433\n\n# Oracle\nORACLE_HOST=localhost\nORACLE_USER=system\nORACLE_PASSWORD=\nORACLE_NAME=bd_clientes\nORACLE_PORT=1521\n\n# SQLite (no necesita host/user/password)\nDB_STORAGE=./database.sqlite'
       },
       {
-        title: 'Conexión BD (src/database/db.ts) — Sequelize multi-engine',
-        content: 'Soporta MySQL, PostgreSQL, SQL Server y Oracle. Solo cambia DB_ENGINE en .env',
+        title: 'Conexión BD (src/database/db.ts) - Sequelize multi-engine',
         code: `import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 
@@ -607,7 +606,7 @@ export const appConfig: ApplicationConfig = {
       },
       {
         title: 'Modelo Angular',
-        content: 'Crea <code>frontend/src/app/models/producto.ts</code>',
+        content: 'Crea <code>frontend/src/app/models/producto.ts</code>. <span class="replace-marker">⚠️ REEMPLAZA</span> la interfaz con los campos de tu entidad',
         code: `export interface Producto {
   id?: number;
   nombre: string;
@@ -1176,11 +1175,11 @@ function escapeAttr(text) {
 // ===== STEP TITLE → GENERATED CODE KEY MAPPING =====
 const STEP_GEN_KEY_MAP = {
   'Variables de entorno (.env)': 'env',
-  'Crear la tabla principal': 'sql',
-  'Conexión BD (src/database/db.ts) — Sequelize multi-engine': 'dbConfig',
-  'Plantilla del modelo': 'model',
-  'Plantilla del controlador': 'controller',
-  'Plantilla de rutas': 'routes',
+  'Crear la tabla (referencia)': 'sql',
+  'Conexión BD (src/database/db.ts) - Sequelize multi-engine': 'dbConfig',
+  'Plantilla del modelo (TypeScript + Sequelize)': 'model',
+  'Plantilla del controlador (TypeScript + Sequelize)': 'controller',
+  'Plantilla de rutas (TypeScript)': 'routes',
   'Servicio HTTP': 'angularService',
   'Modelo Angular': 'angularModel',
   'Rutas de Angular (app.routes.ts)': 'angularAppRoutes',
@@ -1194,6 +1193,7 @@ const STEP_GEN_KEY_MAP = {
 const GEN_KEY_LANG = {
   'env': 'bash',
   'sql': 'sql',
+  'dbConfig': 'javascript',
   'model': 'javascript',
   'controller': 'javascript',
   'routes': 'javascript',
