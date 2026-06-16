@@ -118,7 +118,7 @@ const phases = [
       {
         title: 'Variables de entorno (.env)',
         content: 'Crea backend/.env. <span class="replace-marker">⚠️ REEMPLAZA</span> las contraseñas según tu motor de BD. Cambia DB_ENGINE por: mysql, postgres, sqlserver, oracle, sqlite',
-        code: 'PORT=4000\n\nDB_ENGINE=mysql      # mysql | postgres | sqlserver | oracle | sqlite\n\n# MySQL\nMYSQL_HOST=localhost\nMYSQL_USER=root\nMYSQL_PASSWORD=\nMYSQL_NAME=bd_clientes\nMYSQL_PORT=3306\n\n# PostgreSQL\nPG_HOST=localhost\nPG_USER=postgres\nPG_PASSWORD=\nPG_NAME=bd_clientes\nPG_PORT=5432\n\n# SQL Server\nSQLSERVER_HOST=localhost\nSQLSERVER_USER=sa\nSQLSERVER_PASSWORD=\nSQLSERVER_NAME=bd_clientes\nSQLSERVER_PORT=1433\n\n# Oracle\nORACLE_HOST=localhost\nORACLE_USER=system\nORACLE_PASSWORD=\nORACLE_NAME=bd_clientes\nORACLE_PORT=1521\n\n# SQLite (no necesita host/user/password)\nDB_STORAGE=./database.sqlite'
+        code: 'PORT=4000\n\nDB_ENGINE=mysql      # mysql | postgres | sqlserver | oracle | sqlite\n\n# MySQL\nMYSQL_HOST=localhost\nMYSQL_USER=root\nMYSQL_PASSWORD=\nMYSQL_NAME=bd_clientes\nMYSQL_PORT=3306\n\n# PostgreSQL\nPOSTGRES_HOST=localhost\nPOSTGRES_USER=postgres\nPOSTGRES_PASSWORD=\nPOSTGRES_NAME=bd_clientes\nPOSTGRES_PORT=5432\n\n# SQL Server\nMSSQL_HOST=localhost\nMSSQL_USER=sa\nMSSQL_PASSWORD=\nMSSQL_NAME=bd_clientes\nMSSQL_PORT=1433\n\n# Oracle\nORACLE_HOST=localhost\nORACLE_USER=system\nORACLE_PASSWORD=\nORACLE_NAME=bd_clientes\nORACLE_PORT=1521\n\n# SQLite (no necesita host/user/password)\nDB_STORAGE=./database.sqlite'
       },
       {
         title: 'Conexión BD (src/database/db.ts) — Sequelize multi-engine',
@@ -148,19 +148,19 @@ const dbConfigurations: Record<string, DatabaseConfig> = {
   },
   postgres: {
     dialect: "postgres",
-    host: process.env.PG_HOST || "localhost",
-    username: process.env.PG_USER || "postgres",
-    password: process.env.PG_PASSWORD || "",
-    database: process.env.PG_NAME || "bd_clientes",
-    port: parseInt(process.env.PG_PORT || "5432")
+    host: process.env.POSTGRES_HOST || "localhost",
+    username: process.env.POSTGRES_USER || "postgres",
+    password: process.env.POSTGRES_PASSWORD || "",
+    database: process.env.POSTGRES_NAME || "bd_clientes",
+    port: parseInt(process.env.POSTGRES_PORT || "5432")
   },
   sqlserver: {
     dialect: "mssql",
-    host: process.env.SQLSERVER_HOST || "localhost",
-    username: process.env.SQLSERVER_USER || "sa",
-    password: process.env.SQLSERVER_PASSWORD || "",
-    database: process.env.SQLSERVER_NAME || "bd_clientes",
-    port: parseInt(process.env.SQLSERVER_PORT || "1433")
+    host: process.env.MSSQL_HOST || "localhost",
+    username: process.env.MSSQL_USER || "sa",
+    password: process.env.MSSQL_PASSWORD || "",
+    database: process.env.MSSQL_NAME || "bd_clientes",
+    port: parseInt(process.env.MSSQL_PORT || "1433")
   },
   oracle: {
     dialect: "oracle",
@@ -283,8 +283,8 @@ main();`
       },
       {
         title: 'Scripts en package.json',
-        content: 'Reemplazar la sección "scripts" en package.json con TypeScript',
-        code: '"scripts": {\n  "build": "tsc",\n  "start": "node dist/server.js",\n  "dev": "nodemon src/server.ts"\n}'
+        content: 'Reemplazar en package.json con TypeScript. Agrega también "type": "commonjs"',
+        code: '"scripts": {\n  "build": "tsc",\n  "start": "node dist/server.js",\n  "dev": "nodemon src/server.ts --exec ts-node"\n},\n"type": "commonjs"'
       },
       {
         title: '.gitignore',
@@ -312,9 +312,9 @@ main();`
         verify: 'SHOW DATABASES; → bd_productos aparece en la lista'
       },
       {
-        title: 'Crear la tabla (ejemplo MySQL)',
-        content: '<span class="replace-marker">⚠️ REEMPLAZA</span> "productos" por el nombre de TU tabla y los campos según tu entidad. Este SQL varía según tu motor de BD (el generador crea el SQL correcto para tu motor)',
-        code: `CREATE TABLE productos (
+        title: 'Crear la tabla (referencia)',
+        content: '<span class="replace-marker">⚠️ REEMPLAZA</span> "productos" por el nombre de TU tabla. Puedes crear la tabla manualmente con este SQL o dejar que Sequelize la cree automáticamente con sequelize.sync(). El generador crea el SQL correcto para tu motor de BD',
+        code: `CREATE TABLE IF NOT EXISTS productos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL,
   descripcion TEXT,
@@ -504,7 +504,7 @@ export default router;`
   {
     id: 'fase-6',
     number: 7,
-    title: 'Pruebas con REST Client',
+    title: 'Pruebas con Postman',
     icon: 'fa-paper-plane',
     steps: [
       {

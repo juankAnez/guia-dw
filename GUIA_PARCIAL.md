@@ -211,14 +211,15 @@ Solución: Verifica que rootDir apunte a ./src y outDir a ./dist
 Qué hacer:       Modificar los scripts del package.json para compilar y ejecutar
 ```
 
-Abre `backend/package.json` y **reemplaza** la sección `"scripts"` con esto:
+Abre `backend/package.json` y **reemplaza** con esto:
 
 ```json
 "scripts": {
   "build": "tsc",
   "start": "node dist/server.js",
-  "dev": "nodemon src/server.ts"
-}
+  "dev": "nodemon src/server.ts --exec ts-node"
+},
+"type": "commonjs"
 ```
 
 | Script | Comando | ¿Qué hace? |
@@ -227,7 +228,7 @@ Abre `backend/package.json` y **reemplaza** la sección `"scripts"` con esto:
 | `start` | `node dist/server.js` | Ejecuta el servidor compilado (producción) |
 | `dev` | `nodemon src/server.ts` | Ejecuta en desarrollo con recarga automática |
 
-**⚠️ `nodemon src/server.ts` funciona sin `--exec ts-node` porque nodemon 3+ detecta automáticamente ts-node cuando está instalado en el proyecto.**
+**⚠️ `--exec ts-node` es necesario para que nodemon ejecute TypeScript directamente. Sin esta bandera, nodemon 3+ a veces falla al detectar ts-node automáticamente.**
 
 ### 1.6 Crear estructura de carpetas
 
@@ -296,18 +297,18 @@ MYSQL_NAME=bd_clientes
 MYSQL_PORT=3306
 
 # ---- PostgreSQL (DB_ENGINE=postgres) ----
-PG_HOST=localhost
-PG_USER=postgres
-PG_PASSWORD=
-PG_NAME=bd_clientes
-PG_PORT=5432
+POSTGRES_HOST=localhost
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=
+POSTGRES_NAME=bd_clientes
+POSTGRES_PORT=5432
 
 # ---- SQL Server (DB_ENGINE=sqlserver) ----
-SQLSERVER_HOST=localhost
-SQLSERVER_USER=sa
-SQLSERVER_PASSWORD=
-SQLSERVER_NAME=bd_clientes
-SQLSERVER_PORT=1433
+MSSQL_HOST=localhost
+MSSQL_USER=sa
+MSSQL_PASSWORD=
+MSSQL_NAME=bd_clientes
+MSSQL_PORT=1433
 
 # ---- Oracle (DB_ENGINE=oracle) ----
 ORACLE_HOST=localhost
@@ -325,10 +326,10 @@ DB_STORAGE=./database.sqlite
 |----------|----------|-----------|
 | `PORT` | Puerto del servidor backend (4000) | No se cambia |
 | `DB_ENGINE` | Motor de BD: `mysql`, `postgres`, `sqlserver`, `oracle`, `sqlite` | **Cambiar según tu motor** |
-| `MYSQL_HOST` / `PG_HOST` / `SQLSERVER_HOST` / `ORACLE_HOST` | Dirección del servidor | `localhost` |
+| `MYSQL_HOST` / `POSTGRES_HOST` / `MSSQL_HOST` / `ORACLE_HOST` | Dirección del servidor | `localhost` |
 | `MYSQL_USER` / etc. | Usuario del motor | Según tu motor |
 | `MYSQL_PASSWORD` / etc. | Contraseña | **PON LA TUYA** |
-| `MYSQL_NAME` / `PG_NAME` / `SQLSERVER_NAME` / `ORACLE_NAME` | Nombre de la base de datos | `bd_clientes` → **el de tu entidad** |
+| `MYSQL_NAME` / `POSTGRES_NAME` / `MSSQL_NAME` / `ORACLE_NAME` | Nombre de la base de datos | `bd_clientes` → **el de tu entidad** |
 | `MYSQL_PORT` / etc. | Puerto del motor | Según tu motor |
 | `DB_STORAGE` | Ruta archivo SQLite (solo sqlite) | `./database.sqlite` |
 
@@ -520,17 +521,31 @@ USE bd_clientes;
 Resultado esperado según tu motor: "CREATE DATABASE" / "Query OK" / "Database changed"
 ```
 
-**⚠️ IMPORTANTE:** El nombre de la BD debe coincidir con el `NAME` de tu motor en `.env` (ej. `MYSQL_NAME`, `PG_NAME`, `SQLSERVER_NAME`, `ORACLE_NAME`).
+**⚠️ IMPORTANTE:** El nombre de la BD debe coincidir con el `NAME` de tu motor en `.env` (ej. `MYSQL_NAME`, `POSTGRES_NAME`, `MSSQL_NAME`, `ORACLE_NAME`).
 
-### 2.2 NO crees las tablas manualmente
+### 2.2 Crear la tabla principal (opcional, referencia)
 
 ```
-Qué hacer:       En esta guía NO ejecutamos CREATE TABLE manual
-Por qué:         Sequelize crea las tablas automáticamente al ejecutar sequelize.sync()
-                 basándose en los modelos que definamos en TypeScript (Fase 3).
+Qué hacer:       Crear la tabla manualmente con SQL (opcional)
+Por qué:         El docente explica la estructura de la tabla. También puedes
+                 dejarla crear a Sequelize automáticamente en Fase 5 con sequelize.sync().
 ```
 
-**Pero debes saber qué tabla se va a crear:**
+**Ejemplo MySQL:**
+```sql
+CREATE TABLE IF NOT EXISTS clientes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  phone VARCHAR(255),
+  address TEXT,
+  status ENUM('ACTIVE','INACTIVE') DEFAULT 'ACTIVE',
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+**🔴 Cuando el docente dé otra entidad, estos campos cambian.**
 
 | Columna | Tipo | Detalle |
 |---------|------|---------|
@@ -540,10 +555,11 @@ Por qué:         Sequelize crea las tablas automáticamente al ejecutar sequeli
 | `phone` | VARCHAR(255) | Puede ser NULL |
 | `address` | TEXT | Puede ser NULL |
 | `status` | ENUM('ACTIVE','INACTIVE') | DEFAULT 'ACTIVE' |
-| `createdAt` | DATETIME | Lo maneja Sequelize automáticamente |
-| `updatedAt` | DATETIME | Lo maneja Sequelize automáticamente |
+| `createdAt` | DATETIME | Lo maneja Sequelize |
+| `updatedAt` | DATETIME | Lo maneja Sequelize |
 
-**🔴 Cuando el docente dé otra entidad, estos campos cambian.**
+**⚠️ Si creas la tabla manualmente**, luego Sequelize la detecta y no la sobrescribe (usa `sync({ force: false })`).  
+**Si NO la creas**, Sequelize la crea automáticamente al ejecutar `npm run dev`.
 
 ### 2.3 Verificar que la BD existe
 
@@ -597,19 +613,19 @@ const dbConfigurations: Record<string, DatabaseConfig> = {
   },
   postgres: {
     dialect: "postgres",
-    host: process.env.PG_HOST || "localhost",
-    username: process.env.PG_USER || "postgres",
-    password: process.env.PG_PASSWORD || "",
-    database: process.env.PG_NAME || "bd_clientes",
-    port: parseInt(process.env.PG_PORT || "5432")
+    host: process.env.POSTGRES_HOST || "localhost",
+    username: process.env.POSTGRES_USER || "postgres",
+    password: process.env.POSTGRES_PASSWORD || "",
+    database: process.env.POSTGRES_NAME || "bd_clientes",
+    port: parseInt(process.env.POSTGRES_PORT || "5432")
   },
   sqlserver: {
     dialect: "mssql",
-    host: process.env.SQLSERVER_HOST || "localhost",
-    username: process.env.SQLSERVER_USER || "sa",
-    password: process.env.SQLSERVER_PASSWORD || "",
-    database: process.env.SQLSERVER_NAME || "bd_clientes",
-    port: parseInt(process.env.SQLSERVER_PORT || "1433")
+    host: process.env.MSSQL_HOST || "localhost",
+    username: process.env.MSSQL_USER || "sa",
+    password: process.env.MSSQL_PASSWORD || "",
+    database: process.env.MSSQL_NAME || "bd_clientes",
+    port: parseInt(process.env.MSSQL_PORT || "1433")
   },
   oracle: {
     dialect: "oracle",
@@ -1122,9 +1138,10 @@ Los scripts completos deben verse así:
 "scripts": {
   "build": "tsc",
   "start": "node dist/server.js",
-  "dev": "nodemon src/server.ts",
+  "dev": "nodemon src/server.ts --exec ts-node",
   "seed": "ts-node src/faker/seed.ts"
-}
+},
+"type": "commonjs"
 ```
 
 ### 6.4 Ejecutar el seed
@@ -1164,7 +1181,7 @@ Solución: DROP TABLE clientes; y luego ejecutar npm run seed (Sequelize recrea 
 
 ---
 
-## FASE 7 — PRUEBAS CON POSTMAN / .HTTP
+## FASE 7 — PRUEBAS CON POSTMAN
 
 ### 7.1 Probar con archivos .http (Thunder Client)
 

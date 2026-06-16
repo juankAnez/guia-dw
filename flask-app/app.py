@@ -216,19 +216,19 @@ const dbConfigurations: Record<string, DatabaseConfig> = {{
   }},
   postgres: {{
     dialect: "postgres",
-    host: process.env.PG_HOST || "localhost",
-    username: process.env.PG_USER || "postgres",
-    password: process.env.PG_PASSWORD || "",
-    database: process.env.PG_NAME || "{entity}",
-    port: parseInt(process.env.PG_PORT || "5432")
+    host: process.env.POSTGRES_HOST || "localhost",
+    username: process.env.POSTGRES_USER || "postgres",
+    password: process.env.POSTGRES_PASSWORD || "",
+    database: process.env.POSTGRES_NAME || "{entity}",
+    port: parseInt(process.env.POSTGRES_PORT || "5432")
   }},
   sqlserver: {{
     dialect: "mssql",
-    host: process.env.SQLSERVER_HOST || "localhost",
-    username: process.env.SQLSERVER_USER || "sa",
-    password: process.env.SQLSERVER_PASSWORD || "",
-    database: process.env.SQLSERVER_NAME || "{entity}",
-    port: parseInt(process.env.SQLSERVER_PORT || "1433")
+    host: process.env.MSSQL_HOST || "localhost",
+    username: process.env.MSSQL_USER || "sa",
+    password: process.env.MSSQL_PASSWORD || "",
+    database: process.env.MSSQL_NAME || "{entity}",
+    port: parseInt(process.env.MSSQL_PORT || "1433")
   }},
   oracle: {{
     dialect: "oracle",
@@ -911,7 +911,7 @@ export class {capitalized}Service {{
 
     seed = generate_seed(entity, capitalized, fields, engine)
     env_config = generate_env(entity, engine)
-    deps = f'npm install express cors morgan dotenv sequelize mysql2 pg tedious oracledb\nnpm install -D typescript @types/node nodemon ts-node @types/express @types/morgan @types/cors @types/sequelize'
+    deps = f'npm install express cors morgan dotenv sequelize mysql2 pg tedious oracledb\nnpm install -D typescript @types/node nodemon ts-node @types/express @types/morgan @types/cors @types/sequelize\n\nLuego agrega en package.json:\n"type": "commonjs"\ny cambia el script dev a:\n"dev": "nodemon src/server.ts --exec ts-node"'
 
     http_client = generate_http_client(entity, plural)
 
@@ -956,18 +956,18 @@ MYSQL_NAME={entity}
 MYSQL_PORT=3306
 
 # ---- PostgreSQL (DB_ENGINE=postgres) ----
-PG_HOST=localhost
-PG_USER=postgres
-PG_PASSWORD=
-PG_NAME={entity}
-PG_PORT=5432
+POSTGRES_HOST=localhost
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=
+POSTGRES_NAME={entity}
+POSTGRES_PORT=5432
 
 # ---- SQL Server (DB_ENGINE=sqlserver) ----
-SQLSERVER_HOST=localhost
-SQLSERVER_USER=sa
-SQLSERVER_PASSWORD=
-SQLSERVER_NAME={entity}
-SQLSERVER_PORT=1433
+MSSQL_HOST=localhost
+MSSQL_USER=sa
+MSSQL_PASSWORD=
+MSSQL_NAME={entity}
+MSSQL_PORT=1433
 
 # ---- Oracle (DB_ENGINE=oracle) ----
 ORACLE_HOST=localhost
