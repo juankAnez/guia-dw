@@ -1501,8 +1501,8 @@ body {
   padding: 1rem 1.15rem;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
   font-size: 0.78rem;
-  overflow-x: auto;
-  max-height: 320px;
+  overflow: auto;
+  max-height: 400px;
   border: 1px solid rgba(255,255,255,0.06);
   border-top: none;
 }
