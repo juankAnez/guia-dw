@@ -118,14 +118,16 @@ Qué hacer:       Instalar los paquetes que el servidor necesita para funcionar
 npm install express cors morgan dotenv sequelize mysql2
 ```
 
-| Dependencia | ¿Para qué sirve? |
+> **💡 Cambia `mysql2`** por `pg` (PostgreSQL), `tedious` (SQL Server) u `oracledb` (Oracle) según el motor que uses.
+
+| Dependencia | ¿Para qué sirve |
 |-------------|------------------|
 | `express` | Framework para crear el servidor web |
 | `cors` | Permite que Angular se comunique con el backend |
 | `morgan` | Muestra en consola cada petición HTTP (logging) |
 | `dotenv` | Lee variables de entorno desde el archivo .env |
-| `sequelize` | ORM para conectar y operar la base de datos MySQL |
-| `mysql2` | Controlador nativo de MySQL para Node.js |
+| `sequelize` | ORM para conectar y operar la base de datos |
+| `mysql2` / `pg` / `tedious` / `oracledb` | Driver según motor: `mysql2`(MySQL), `pg`(PostgreSQL), `tedious`(SQL Server), `oracledb`(Oracle) |
 
 **Dependencias de desarrollo:**
 ```
@@ -283,27 +285,54 @@ Crea `backend/.env` con este contenido:
 ```env
 PORT=4000
 
+# Motor de base de datos: mysql, postgres, sqlserver, oracle, sqlite
 DB_ENGINE=mysql
 
+# ---- MySQL (DB_ENGINE=mysql) ----
 MYSQL_HOST=localhost
 MYSQL_USER=root
 MYSQL_PASSWORD=
 MYSQL_NAME=bd_clientes
 MYSQL_PORT=3306
+
+# ---- PostgreSQL (DB_ENGINE=postgres) ----
+PG_HOST=localhost
+PG_USER=postgres
+PG_PASSWORD=
+PG_NAME=bd_clientes
+PG_PORT=5432
+
+# ---- SQL Server (DB_ENGINE=sqlserver) ----
+SQLSERVER_HOST=localhost
+SQLSERVER_USER=sa
+SQLSERVER_PASSWORD=
+SQLSERVER_NAME=bd_clientes
+SQLSERVER_PORT=1433
+
+# ---- Oracle (DB_ENGINE=oracle) ----
+ORACLE_HOST=localhost
+ORACLE_USER=system
+ORACLE_PASSWORD=
+ORACLE_NAME=bd_clientes
+ORACLE_PORT=1521
+
+# ---- SQLite (DB_ENGINE=sqlite) ----
+# SQLite no necesita host/user/password/port
+DB_STORAGE=./database.sqlite
 ```
 
 | Variable | ¿Qué es? | REEMPLAZAR |
 |----------|----------|-----------|
 | `PORT` | Puerto del servidor backend (4000) | No se cambia |
-| `DB_ENGINE` | Motor de BD (solo mysql) | No se cambia |
-| `MYSQL_HOST` | Dirección del servidor MySQL | `localhost` |
-| `MYSQL_USER` | Usuario de MySQL | `root` |
-| `MYSQL_PASSWORD` | Contraseña de MySQL | **PON LA TUYA** |
-| `MYSQL_NAME` | Nombre de la base de datos | `bd_clientes` → **el de tu entidad** |
-| `MYSQL_PORT` | Puerto de MySQL | `3306` |
+| `DB_ENGINE` | Motor de BD: `mysql`, `postgres`, `sqlserver`, `oracle`, `sqlite` | **Cambiar según tu motor** |
+| `MYSQL_HOST` / `PG_HOST` / `SQLSERVER_HOST` / `ORACLE_HOST` | Dirección del servidor | `localhost` |
+| `MYSQL_USER` / etc. | Usuario del motor | Según tu motor |
+| `MYSQL_PASSWORD` / etc. | Contraseña | **PON LA TUYA** |
+| `MYSQL_NAME` / `PG_NAME` / `SQLSERVER_NAME` / `ORACLE_NAME` | Nombre de la base de datos | `bd_clientes` → **el de tu entidad** |
+| `MYSQL_PORT` / etc. | Puerto del motor | Según tu motor |
+| `DB_STORAGE` | Ruta archivo SQLite (solo sqlite) | `./database.sqlite` |
 
-**⚠️ IMPORTANTE:** `MYSQL_PASSWORD` debe ser la contraseña que pusiste al instalar MySQL.
-Si no tienes contraseña, déjalo vacío: `MYSQL_PASSWORD=`
+**⚠️ IMPORTANTE:** Solo las variables del motor que elijas en `DB_ENGINE` son necesarias. Las demás pueden quedar con valores por defecto. La contraseña debe ser la que pusiste al instalar tu motor de BD.
 
 ### 1.8 Crear archivo .gitignore
 
@@ -462,28 +491,36 @@ Solución: npm install -D ts-node
 
 ---
 
-## FASE 2 — BASE DE DATOS MYSQL Y TABLA ÚNICA
+## FASE 2 — BASE DE DATOS Y TABLA ÚNICA
 
-### 2.1 Crear la base de datos en MySQL
+### 2.1 Crear la base de datos
 
 ```
-Qué hacer:       Crear la base de datos vacía usando MySQL
+Qué hacer:       Crear la base de datos vacía usando tu motor de BD
 Por qué:         Sequelize sincronizará los modelos creando las tablas automáticamente
 ```
 
-Abre MySQL (terminal, MySQL Workbench o phpMyAdmin) y ejecuta:
+**Según tu motor de BD, abre el cliente correspondiente** (MySQL Workbench, pgAdmin, SQL Server Management Studio, SQL*Plus, etc.) y ejecuta:
 
 ```sql
-CREATE DATABASE IF NOT EXISTS bd_clientes;  /* ← REEMPLAZAR: nombre de tu BD */
+/* MySQL / SQL Server */
+CREATE DATABASE IF NOT EXISTS bd_clientes;
 USE bd_clientes;
+
+/* PostgreSQL */
+-- CREATE DATABASE bd_clientes;
+-- \c bd_clientes
+
+/* Oracle */
+-- CREATE USER bd_clientes IDENTIFIED BY password;
+-- GRANT CONNECT, RESOURCE TO bd_clientes;
 ```
 
 ```
-Resultado:       "Query OK, 1 row affected"
-Verificar:       SHOW DATABASES; → debe aparecer bd_clientes en la lista
+Resultado esperado según tu motor: "CREATE DATABASE" / "Query OK" / "Database changed"
 ```
 
-**⚠️ IMPORTANTE:** El nombre de la BD debe coincidir con `MYSQL_NAME` en tu `.env`.
+**⚠️ IMPORTANTE:** El nombre de la BD debe coincidir con el `NAME` de tu motor en `.env` (ej. `MYSQL_NAME`, `PG_NAME`, `SQLSERVER_NAME`, `ORACLE_NAME`).
 
 ### 2.2 NO crees las tablas manualmente
 
@@ -508,23 +545,18 @@ Por qué:         Sequelize crea las tablas automáticamente al ejecutar sequeli
 
 **🔴 Cuando el docente dé otra entidad, estos campos cambian.**
 
-### 2.3 Verificar MySQL está funcionando
+### 2.3 Verificar que la BD existe
 
 ```sql
-SELECT VERSION();
-SHOW DATABASES;
-USE bd_clientes;
-SELECT DATABASE();
+/* Según tu motor */
+SELECT VERSION();                     -- MySQL
+SHOW DATABASES;                       -- MySQL
+\list                                -- PostgreSQL
+SELECT name FROM sys.databases;       -- SQL Server
+SELECT * FROM all_users;              -- Oracle
 ```
 
-```
-Resultado esperado:
-  - VERSION() → 8.x.x
-  - SHOW DATABASES → incluye bd_clientes
-  - DATABASE() → bd_clientes
-```
-
-✅ **FASE 2 COMPLETADA** cuando `SHOW DATABASES` muestre `bd_clientes`.
+✅ **FASE 2 COMPLETADA** cuando la base de datos `bd_clientes` (o el nombre que hayas elegido) exista en tu motor de BD.
 
 ---
 
@@ -562,6 +594,30 @@ const dbConfigurations: Record<string, DatabaseConfig> = {
     password: process.env.MYSQL_PASSWORD || "",
     database: process.env.MYSQL_NAME || "bd_clientes",
     port: parseInt(process.env.MYSQL_PORT || "3306")
+  },
+  postgres: {
+    dialect: "postgres",
+    host: process.env.PG_HOST || "localhost",
+    username: process.env.PG_USER || "postgres",
+    password: process.env.PG_PASSWORD || "",
+    database: process.env.PG_NAME || "bd_clientes",
+    port: parseInt(process.env.PG_PORT || "5432")
+  },
+  sqlserver: {
+    dialect: "mssql",
+    host: process.env.SQLSERVER_HOST || "localhost",
+    username: process.env.SQLSERVER_USER || "sa",
+    password: process.env.SQLSERVER_PASSWORD || "",
+    database: process.env.SQLSERVER_NAME || "bd_clientes",
+    port: parseInt(process.env.SQLSERVER_PORT || "1433")
+  },
+  oracle: {
+    dialect: "oracle",
+    host: process.env.ORACLE_HOST || "localhost",
+    username: process.env.ORACLE_USER || "system",
+    password: process.env.ORACLE_PASSWORD || "",
+    database: process.env.ORACLE_NAME || "bd_clientes",
+    port: parseInt(process.env.ORACLE_PORT || "1521")
   }
 };
 
@@ -574,11 +630,16 @@ if (!selectedConfig) {
 
 console.log(`🔌 Conectando a base de datos: ${selectedEngine.toUpperCase()}`);
 
-export const sequelize = new Sequelize(
-  selectedConfig.database,
-  selectedConfig.username,
-  selectedConfig.password,
-  {
+export let sequelize: Sequelize;
+
+if (selectedEngine === "sqlite") {
+  sequelize = new Sequelize({
+    dialect: "sqlite",
+    storage: process.env.DB_STORAGE || "./database.sqlite",
+    logging: false
+  });
+} else {
+  const sequelizeOptions: any = {
     host: selectedConfig.host,
     port: selectedConfig.port,
     dialect: selectedConfig.dialect as any,
@@ -589,8 +650,23 @@ export const sequelize = new Sequelize(
       acquire: 30000,
       idle: 10000
     }
+  };
+
+  // SQL Server necesita opciones adicionales
+  if (selectedEngine === "sqlserver") {
+    sequelizeOptions.dialectOptions = {
+      encrypt: false,
+      trustServerCertificate: true
+    };
   }
-);
+
+  sequelize = new Sequelize(
+    selectedConfig.database,
+    selectedConfig.username,
+    selectedConfig.password,
+    sequelizeOptions
+  );
+}
 
 export const getDatabaseInfo = () => {
   return {
@@ -612,10 +688,10 @@ export const testConnection = async (): Promise<boolean> => {
 };
 ```
 
-**⚠️ Error común:** `ECONNREFUSED :3306`
+**⚠️ Error común:** `ECONNREFUSED :xxxx` (ej. :3306, :5432, :1433, :1521)
 ```
-Causa: MySQL no está corriendo.
-Solución: Inicia MySQL desde Servicios (services.msc) o XAMPP.
+Causa: El motor de base de datos no está corriendo en el puerto indicado.
+Solución: Inicia el servicio de tu motor de BD (MySQL desde Servicios/XAMPP, PostgreSQL desde pgAdmin/servicios, etc.) y verifica el puerto en .env.
 ```
 
 ### 3.2 Crear el modelo de la entidad (models/Cliente.ts)
@@ -1752,8 +1828,8 @@ npm run dev
 ### ¿Qué debe estar corriendo?
 
 | Componente | Comando | Puerto |
-|-----------|---------|--------|
-| **MySQL** | Servicio de Windows (MySQL80) o XAMPP | 3306 |
+|------------|--------|--------|
+| **Motor BD** | Servicio según tu motor (MySQL/PostgreSQL/SQL Server/Oracle) | Según .env |
 | **Backend** | `cd backend && npm run dev` | 4000 |
 | **Frontend** | `cd frontend && ng serve` | 4200 |
 

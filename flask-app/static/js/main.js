@@ -55,8 +55,8 @@ const phases = [
         headers: ['Dependencia', 'Para qué sirve'],
         rows: [
           ['express', 'Framework para crear el servidor web'],
-          ['sequelize', 'ORM para conectar con MySQL'],
-          ['mysql2', 'Controlador nativo de MySQL para Sequelize'],
+          ['sequelize', 'ORM para conectar con la base de datos'],
+          ['mysql2 / pg / tedious / oracledb', 'Driver según motor (mysql2 por defecto)'],
           ['cors', 'Permite que Angular se comunique con el backend'],
           ['morgan', 'Muestra en consola cada petición HTTP'],
           ['dotenv', 'Lee variables de entorno desde .env']
@@ -79,6 +79,7 @@ const phases = [
       },
       {
         title: 'Comando de instalación',
+        content: 'Reemplaza "mysql2" por "pg" (PostgreSQL), "tedious" (SQL Server) u "oracledb" (Oracle) según tu motor',
         code: 'npm install express cors morgan dotenv sequelize mysql2\nnpm install -D typescript @types/node nodemon ts-node @types/express @types/morgan @types/cors @types/sequelize'
       },
       {
@@ -116,28 +117,99 @@ const phases = [
       },
       {
         title: 'Variables de entorno (.env)',
-        content: 'Crea backend/.env. <span class="replace-marker">⚠️ REEMPLAZA</span> DB_PASSWORD con tu contraseña MySQL',
-        code: 'PORT=4000\n\nDB_ENGINE=mysql\n\nMYSQL_HOST=localhost\nMYSQL_USER=root\nMYSQL_PASSWORD=   ← TU CONTRASEÑA\nMYSQL_NAME=bd_clientes    ← REEMPLAZAR\nMYSQL_PORT=3306'
+        content: 'Crea backend/.env. <span class="replace-marker">⚠️ REEMPLAZA</span> las contraseñas según tu motor de BD. Cambia DB_ENGINE por: mysql, postgres, sqlserver, oracle, sqlite',
+        code: 'PORT=4000\n\nDB_ENGINE=mysql      # mysql | postgres | sqlserver | oracle | sqlite\n\n# MySQL\nMYSQL_HOST=localhost\nMYSQL_USER=root\nMYSQL_PASSWORD=\nMYSQL_NAME=bd_clientes\nMYSQL_PORT=3306\n\n# PostgreSQL\nPG_HOST=localhost\nPG_USER=postgres\nPG_PASSWORD=\nPG_NAME=bd_clientes\nPG_PORT=5432\n\n# SQL Server\nSQLSERVER_HOST=localhost\nSQLSERVER_USER=sa\nSQLSERVER_PASSWORD=\nSQLSERVER_NAME=bd_clientes\nSQLSERVER_PORT=1433\n\n# Oracle\nORACLE_HOST=localhost\nORACLE_USER=system\nORACLE_PASSWORD=\nORACLE_NAME=bd_clientes\nORACLE_PORT=1521\n\n# SQLite (no necesita host/user/password)\nDB_STORAGE=./database.sqlite'
       },
       {
-        title: 'Conexión BD (src/database/db.ts) — Sequelize',
+        title: 'Conexión BD (src/database/db.ts) — Sequelize multi-engine',
+        content: 'Soporta MySQL, PostgreSQL, SQL Server y Oracle. Solo cambia DB_ENGINE en .env',
         code: `import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-export const sequelize = new Sequelize(
-  process.env.MYSQL_NAME || 'bd_clientes',
-  process.env.MYSQL_USER || 'root',
-  process.env.MYSQL_PASSWORD || '',
-  {
-    host: process.env.MYSQL_HOST || 'localhost',
-    port: parseInt(process.env.MYSQL_PORT || '3306'),
-    dialect: 'mysql',
+interface DatabaseConfig {
+  dialect: string;
+  host: string;
+  username: string;
+  password: string;
+  database: string;
+  port: number;
+}
+
+const dbConfigurations: Record<string, DatabaseConfig> = {
+  mysql: {
+    dialect: "mysql",
+    host: process.env.MYSQL_HOST || "localhost",
+    username: process.env.MYSQL_USER || "root",
+    password: process.env.MYSQL_PASSWORD || "",
+    database: process.env.MYSQL_NAME || "bd_clientes",
+    port: parseInt(process.env.MYSQL_PORT || "3306")
+  },
+  postgres: {
+    dialect: "postgres",
+    host: process.env.PG_HOST || "localhost",
+    username: process.env.PG_USER || "postgres",
+    password: process.env.PG_PASSWORD || "",
+    database: process.env.PG_NAME || "bd_clientes",
+    port: parseInt(process.env.PG_PORT || "5432")
+  },
+  sqlserver: {
+    dialect: "mssql",
+    host: process.env.SQLSERVER_HOST || "localhost",
+    username: process.env.SQLSERVER_USER || "sa",
+    password: process.env.SQLSERVER_PASSWORD || "",
+    database: process.env.SQLSERVER_NAME || "bd_clientes",
+    port: parseInt(process.env.SQLSERVER_PORT || "1433")
+  },
+  oracle: {
+    dialect: "oracle",
+    host: process.env.ORACLE_HOST || "localhost",
+    username: process.env.ORACLE_USER || "system",
+    password: process.env.ORACLE_PASSWORD || "",
+    database: process.env.ORACLE_NAME || "bd_clientes",
+    port: parseInt(process.env.ORACLE_PORT || "1521")
+  }
+};
+
+const selectedEngine = process.env.DB_ENGINE || "mysql";
+const selectedConfig = dbConfigurations[selectedEngine];
+
+if (!selectedConfig && selectedEngine !== "sqlite") {
+  throw new Error(\`Motor no soportado: \${selectedEngine}\`);
+}
+
+export let sequelize: any;
+
+if (selectedEngine === "sqlite") {
+  sequelize = new Sequelize({
+    dialect: "sqlite",
+    storage: process.env.DB_STORAGE || "./database.sqlite",
+    logging: false
+  });
+} else {
+  const sequelizeOptions: any = {
+    host: selectedConfig.host,
+    port: selectedConfig.port,
+    dialect: selectedConfig.dialect as any,
     logging: false,
     pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
+  };
+
+  if (selectedEngine === "sqlserver") {
+    sequelizeOptions.dialectOptions = {
+      encrypt: false,
+      trustServerCertificate: true
+    };
   }
-);
+
+  sequelize = new Sequelize(
+    selectedConfig.database,
+    selectedConfig.username,
+    selectedConfig.password,
+    sequelizeOptions
+  );
+}
 
 export const testConnection = async () => {
   try {
@@ -235,13 +307,13 @@ main();`
     steps: [
       {
         title: 'Crear la base de datos',
-        content: 'Abre MySQL (terminal o phpMyAdmin) y ejecuta:',
+        content: 'Según tu motor de BD: MySQL (Workbench), PostgreSQL (pgAdmin), SQL Server (SSMS), Oracle (SQL*Plus)',
         code: 'CREATE DATABASE IF NOT EXISTS bd_productos;\nUSE bd_productos;',
         verify: 'SHOW DATABASES; → bd_productos aparece en la lista'
       },
       {
-        title: 'Crear la tabla principal',
-        content: '<span class="replace-marker">⚠️ REEMPLAZA</span> "productos" por el nombre de TU tabla y los campos según tu entidad',
+        title: 'Crear la tabla (ejemplo MySQL)',
+        content: '<span class="replace-marker">⚠️ REEMPLAZA</span> "productos" por el nombre de TU tabla y los campos según tu entidad. Este SQL varía según tu motor de BD (el generador crea el SQL correcto para tu motor)',
         code: `CREATE TABLE productos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL,
@@ -847,7 +919,7 @@ export class ProductoForm implements OnInit {
     steps: [
       {
         title: 'Diagrama del flujo',
-        content: 'Frontend (Angular :4200) → HTTP/JSON → Backend (Node.js :4000) → Sequelize → MySQL',
+        content: 'Frontend (Angular :4200) → HTTP/JSON → Backend (Node.js :4000) → Sequelize → Tu BD (MySQL/Postgres/SQL Server/Oracle)',
         code: `┌─────────────┐      HTTP      ┌──────────┐   Sequelize  ┌──────────────┐
 │   ANGULAR   │ ──────────────▶ │  NODE.JS │ ────────────▶ │    MYSQL     │
 │  Frontend   │ ◀────────────── │  Express │ ◀──────────── │  Base de     │
@@ -859,7 +931,7 @@ export class ProductoForm implements OnInit {
         isTable: true,
         headers: ['Componente', 'Comando', 'Puerto'],
         rows: [
-          ['MySQL', 'Servicio de Windows o XAMPP', '3306'],
+          ['Motor BD', 'Servicio según tu motor (MySQL, PostgreSQL, SQL Server, Oracle)', 'Según .env'],
           ['Backend', 'cd backend && npm run dev', '4000'],
           ['Frontend', 'cd frontend && ng serve', '4200']
         ]
@@ -1105,6 +1177,7 @@ function escapeAttr(text) {
 const STEP_GEN_KEY_MAP = {
   'Variables de entorno (.env)': 'env',
   'Crear la tabla principal': 'sql',
+  'Conexión BD (src/database/db.ts) — Sequelize multi-engine': 'dbConfig',
   'Plantilla del modelo': 'model',
   'Plantilla del controlador': 'controller',
   'Plantilla de rutas': 'routes',

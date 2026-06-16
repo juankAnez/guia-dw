@@ -191,21 +191,75 @@ def engine_time_col(engine, kind):
 
 
 def generate_db_config(entity, engine):
-    info = ENGINES[engine]
-    if engine == 'mysql':
-        return f'''import {{ Sequelize }} from "sequelize";
+    return f'''import {{ Sequelize }} from "sequelize";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const sequelize = new Sequelize(
-  process.env.MYSQL_NAME || '{entity}',
-  process.env.MYSQL_USER || 'root',
-  process.env.MYSQL_PASSWORD || '',
-  {{
-    host: process.env.MYSQL_HOST || 'localhost',
-    port: parseInt(process.env.MYSQL_PORT || '{info["port"]}'),
-    dialect: 'mysql',
+interface DatabaseConfig {{
+  dialect: string;
+  host: string;
+  username: string;
+  password: string;
+  database: string;
+  port: number;
+}}
+
+const dbConfigurations: Record<string, DatabaseConfig> = {{
+  mysql: {{
+    dialect: "mysql",
+    host: process.env.MYSQL_HOST || "localhost",
+    username: process.env.MYSQL_USER || "root",
+    password: process.env.MYSQL_PASSWORD || "",
+    database: process.env.MYSQL_NAME || "{entity}",
+    port: parseInt(process.env.MYSQL_PORT || "3306")
+  }},
+  postgres: {{
+    dialect: "postgres",
+    host: process.env.PG_HOST || "localhost",
+    username: process.env.PG_USER || "postgres",
+    password: process.env.PG_PASSWORD || "",
+    database: process.env.PG_NAME || "{entity}",
+    port: parseInt(process.env.PG_PORT || "5432")
+  }},
+  sqlserver: {{
+    dialect: "mssql",
+    host: process.env.SQLSERVER_HOST || "localhost",
+    username: process.env.SQLSERVER_USER || "sa",
+    password: process.env.SQLSERVER_PASSWORD || "",
+    database: process.env.SQLSERVER_NAME || "{entity}",
+    port: parseInt(process.env.SQLSERVER_PORT || "1433")
+  }},
+  oracle: {{
+    dialect: "oracle",
+    host: process.env.ORACLE_HOST || "localhost",
+    username: process.env.ORACLE_USER || "system",
+    password: process.env.ORACLE_PASSWORD || "",
+    database: process.env.ORACLE_NAME || "{entity}",
+    port: parseInt(process.env.ORACLE_PORT || "1521")
+  }}
+}};
+
+const selectedEngine = process.env.DB_ENGINE || "mysql";
+const selectedConfig = dbConfigurations[selectedEngine];
+
+if (!selectedConfig) {{
+  throw new Error(`Motor de base de datos no soportado: ${{selectedEngine}}`);
+}}
+
+export let sequelize: Sequelize;
+
+if (selectedEngine === "sqlite") {{
+  sequelize = new Sequelize({{
+    dialect: "sqlite",
+    storage: process.env.DB_STORAGE || "./database.sqlite",
+    logging: false
+  }});
+}} else {{
+  const sequelizeOptions: any = {{
+    host: selectedConfig.host,
+    port: selectedConfig.port,
+    dialect: selectedConfig.dialect as any,
     logging: false,
     pool: {{
       max: 5,
@@ -213,90 +267,43 @@ const sequelize = new Sequelize(
       acquire: 30000,
       idle: 10000
     }}
-  }}
-);
+  }};
 
-export default sequelize;'''
-    elif engine == 'postgres':
-        return f'''import {{ Sequelize }} from "sequelize";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-const sequelize = new Sequelize(
-  process.env.DB_NAME || '{entity}',
-  process.env.DB_USER || 'postgres',
-  process.env.DB_PASSWORD || '',
-  {{
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '{info["port"]}'),
-    dialect: 'postgres',
-    logging: false,
-    pool: {{
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
-    }}
-  }}
-);
-
-export default sequelize;'''
-    elif engine == 'sqlserver':
-        return f'''import {{ Sequelize }} from "sequelize";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-const sequelize = new Sequelize(
-  process.env.DB_NAME || '{entity}',
-  process.env.DB_USER || 'sa',
-  process.env.DB_PASSWORD || '',
-  {{
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '{info["port"]}'),
-    dialect: 'mssql',
-    dialectOptions: {{
+  if (selectedEngine === "sqlserver") {{
+    sequelizeOptions.dialectOptions = {{
       encrypt: false,
       trustServerCertificate: true
-    }},
-    logging: false
+    }};
   }}
-);
 
-export default sequelize;'''
-    elif engine == 'oracle':
-        return f'''import {{ Sequelize }} from "sequelize";
-import dotenv from "dotenv";
+  sequelize = new Sequelize(
+    selectedConfig.database,
+    selectedConfig.username,
+    selectedConfig.password,
+    sequelizeOptions
+  );
+}}
 
-dotenv.config();
+export const getDatabaseInfo = () => {{
+  return {{
+    engine: selectedEngine,
+    config: selectedConfig,
+    connectionString: (selectedEngine === "sqlite")
+      ? "sqlite://" + (process.env.DB_STORAGE || "./database.sqlite")
+      : `${{selectedConfig?.dialect}}://${{selectedConfig?.username}}@${{selectedConfig?.host}}:${{selectedConfig?.port}}/${{selectedConfig?.database}}`
+  }};
+}};
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME || '{entity}',
-  process.env.DB_USER || 'admin',
-  process.env.DB_PASSWORD || '',
-  {{
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '{info["port"]}'),
-    dialect: 'oracle',
-    logging: false
+export const testConnection = async (): Promise<boolean> => {{
+  try {{
+    await sequelize.authenticate();
+    console.log(`Conexión exitosa a ${{selectedEngine.toUpperCase()}}`);
+    return true;
+  }} catch (error) {{
+    console.error(`Error de conexión a ${{selectedEngine.toUpperCase()}}:`, error);
+    return false;
   }}
-);
-
-export default sequelize;'''
-    elif engine == 'sqlite':
-        return f'''import {{ Sequelize }} from "sequelize";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-const sequelize = new Sequelize({{
-  dialect: 'sqlite',
-  storage: process.env.DB_STORAGE || './database.sqlite',
-  logging: false
-}});
-
-export default sequelize;'''
+}};'''
 
 
 def generate_model(entity, plural, capitalized, fields, engine):
@@ -348,7 +355,7 @@ def generate_model(entity, plural, capitalized, fields, engine):
     fields_str = ',\n'.join(field_defs)
 
     return f'''import {{ DataTypes, Model }} from "sequelize";
-import sequelize from "../database/db";
+import {{ sequelize }} from "../database/db";
 
 export interface {capitalized}I {{
   id?: number;
@@ -904,7 +911,7 @@ export class {capitalized}Service {{
 
     seed = generate_seed(entity, capitalized, fields, engine)
     env_config = generate_env(entity, engine)
-    deps = f'npm install express cors morgan dotenv sequelize {ENGINES[engine]["package"]}\nnpm install -D typescript @types/node nodemon ts-node @types/express @types/morgan @types/cors @types/sequelize'
+    deps = f'npm install express cors morgan dotenv sequelize mysql2 pg tedious oracledb\nnpm install -D typescript @types/node nodemon ts-node @types/express @types/morgan @types/cors @types/sequelize'
 
     http_client = generate_http_client(entity, plural)
 
@@ -935,26 +942,43 @@ export class {capitalized}Service {{
 
 
 def generate_env(entity, engine):
-    if engine == 'sqlite':
-        return f'''PORT=4000
-DB_STORAGE=./database.sqlite'''
-    info = ENGINES[engine]
-    if engine == 'mysql':
-        return f'''PORT=4000
+    return f'''# PUERTO DEL SERVIDOR
+PORT=4000
 
-DB_ENGINE=mysql
+# MOTOR DE BASE DE DATOS: mysql, postgres, sqlserver, oracle, sqlite
+DB_ENGINE={engine}
 
+# ---- MySQL (DB_ENGINE=mysql) ----
 MYSQL_HOST=localhost
 MYSQL_USER=root
 MYSQL_PASSWORD=
 MYSQL_NAME={entity}
-MYSQL_PORT={info['port']}'''
-    return f'''PORT=4000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=
-DB_NAME={entity}
-DB_PORT={info['port']}'''
+MYSQL_PORT=3306
+
+# ---- PostgreSQL (DB_ENGINE=postgres) ----
+PG_HOST=localhost
+PG_USER=postgres
+PG_PASSWORD=
+PG_NAME={entity}
+PG_PORT=5432
+
+# ---- SQL Server (DB_ENGINE=sqlserver) ----
+SQLSERVER_HOST=localhost
+SQLSERVER_USER=sa
+SQLSERVER_PASSWORD=
+SQLSERVER_NAME={entity}
+SQLSERVER_PORT=1433
+
+# ---- Oracle (DB_ENGINE=oracle) ----
+ORACLE_HOST=localhost
+ORACLE_USER=system
+ORACLE_PASSWORD=
+ORACLE_NAME={entity}
+ORACLE_PORT=1521
+
+# ---- SQLite (DB_ENGINE=sqlite) ----
+# No necesita host/user/password/port
+DB_STORAGE=./database.sqlite'''
 
 
 def generate_seed(entity, capitalized, fields, engine):
@@ -995,7 +1019,7 @@ def generate_seed(entity, capitalized, fields, engine):
 
     fa = '\n'.join(field_assignments)
 
-    return f'''import sequelize from "../database/db";
+    return f'''import {{ sequelize }} from "../database/db";
 import {capitalized} from "../models/{entity}";
 import {{ faker }} from "@faker-js/faker";
 
