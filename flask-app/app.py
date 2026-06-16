@@ -193,124 +193,186 @@ def engine_time_col(engine, kind):
 def generate_db_config(entity, engine):
     info = ENGINES[engine]
     if engine == 'mysql':
-        return f'''const mysql = require('mysql2/promise');
-require('dotenv').config();
+        return f'''import {{ Sequelize }} from "sequelize";
+import dotenv from "dotenv";
 
-const pool = mysql.createPool({{
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || '{entity}',
-  port: parseInt(process.env.DB_PORT) || {info['port']},
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-}});
+dotenv.config();
 
-module.exports = pool;'''
+const sequelize = new Sequelize(
+  process.env.MYSQL_NAME || '{entity}',
+  process.env.MYSQL_USER || 'root',
+  process.env.MYSQL_PASSWORD || '',
+  {{
+    host: process.env.MYSQL_HOST || 'localhost',
+    port: parseInt(process.env.MYSQL_PORT || '{info["port"]}'),
+    dialect: 'mysql',
+    logging: false,
+    pool: {{
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }}
+  }}
+);
+
+export default sequelize;'''
     elif engine == 'postgres':
-        return f'''const {{ Pool }} = require('pg');
-require('dotenv').config();
+        return f'''import {{ Sequelize }} from "sequelize";
+import dotenv from "dotenv";
 
-const pool = new Pool({{
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || '{entity}',
-  port: parseInt(process.env.DB_PORT) || {info['port']},
-  max: 10,
-  idleTimeoutMillis: 30000
-}});
+dotenv.config();
 
-module.exports = pool;'''
+const sequelize = new Sequelize(
+  process.env.DB_NAME || '{entity}',
+  process.env.DB_USER || 'postgres',
+  process.env.DB_PASSWORD || '',
+  {{
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '{info["port"]}'),
+    dialect: 'postgres',
+    logging: false,
+    pool: {{
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }}
+  }}
+);
+
+export default sequelize;'''
     elif engine == 'sqlserver':
-        return f'''const sql = require('mssql');
-require('dotenv').config();
+        return f'''import {{ Sequelize }} from "sequelize";
+import dotenv from "dotenv";
 
-const config = {{
-  server: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'sa',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || '{entity}',
-  port: parseInt(process.env.DB_PORT) || {info['port']},
-  options: {{ encrypt: false, trustServerCertificate: true }}
-}};
+dotenv.config();
 
-const poolPromise = sql.connect(config)
-  .then(pool => {{ console.log('Conectado a SQL Server'); return pool; }})
-  .catch(err => {{ console.error('Error SQL Server:', err); process.exit(1); }});
+const sequelize = new Sequelize(
+  process.env.DB_NAME || '{entity}',
+  process.env.DB_USER || 'sa',
+  process.env.DB_PASSWORD || '',
+  {{
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '{info["port"]}'),
+    dialect: 'mssql',
+    dialectOptions: {{
+      encrypt: false,
+      trustServerCertificate: true
+    }},
+    logging: false
+  }}
+);
 
-module.exports = {{ sql, poolPromise }};'''
+export default sequelize;'''
     elif engine == 'oracle':
-        return f'''const oracledb = require('oracledb');
-require('dotenv').config();
+        return f'''import {{ Sequelize }} from "sequelize";
+import dotenv from "dotenv";
 
-async function getConnection() {{
-  const connection = await oracledb.getConnection({{
-    user: process.env.DB_USER || 'admin',
-    password: process.env.DB_PASSWORD || '',
-    connectionString: `${{process.env.DB_HOST || 'localhost'}}:${{process.env.DB_PORT || {info['port']}}}/${{process.env.DB_NAME || '{entity}'}}`
-  }});
-  return connection;
-}}
+dotenv.config();
 
-module.exports = {{ getConnection }};'''
+const sequelize = new Sequelize(
+  process.env.DB_NAME || '{entity}',
+  process.env.DB_USER || 'admin',
+  process.env.DB_PASSWORD || '',
+  {{
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '{info["port"]}'),
+    dialect: 'oracle',
+    logging: false
+  }}
+);
+
+export default sequelize;'''
     elif engine == 'sqlite':
-        return f'''const {{ Sequelize }} = require('sequelize');
-require('dotenv').config();
+        return f'''import {{ Sequelize }} from "sequelize";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const sequelize = new Sequelize({{
   dialect: 'sqlite',
   storage: process.env.DB_STORAGE || './database.sqlite',
-  logging: process.env.NODE_ENV === 'development' ? console.log : false
+  logging: false
 }});
 
-module.exports = sequelize;'''
+export default sequelize;'''
 
 
 def generate_model(entity, plural, capitalized, fields, engine):
-    allowed = []
+    field_defs = []
+    field_imports = []
     for f in fields:
         n = f['name']
+        t = f['type']
         if n == 'id':
             continue
-        allowed.append(f"'{n}'")
+        pk = f.get('pk', False)
+        nn = f.get('notNull', False)
+        uniq = f.get('unique', False)
+        dflt = f.get('default', '')
 
-    allowed_str = ', '.join(allowed)
+        if t in ('INTEGER', 'BIGINT'):
+            ts_type = 'DataTypes.INTEGER'
+            if t == 'BIGINT':
+                ts_type = 'DataTypes.BIGINT'
+        elif t == 'DECIMAL':
+            ts_type = 'DataTypes.DECIMAL'
+        elif t == 'BOOLEAN':
+            ts_type = 'DataTypes.BOOLEAN'
+        elif t == 'DATE':
+            ts_type = 'DataTypes.DATE'
+        elif t == 'TIMESTAMP':
+            ts_type = 'DataTypes.DATE'
+        elif t == 'TEXT':
+            ts_type = 'DataTypes.TEXT'
+        else:
+            ts_type = 'DataTypes.STRING'
 
-    return f'''const pool = require('../config/db');
+        props = []
+        if nn:
+            props.append('allowNull: false')
+        else:
+            props.append('allowNull: true')
+        if uniq:
+            props.append('unique: true')
+        if dflt:
+            props.append(f"defaultValue: {dflt}")
 
-const tableName = '{plural}';
-const allowedFields = [{allowed_str}];
+        props_str = ',\n      '.join(props)
+        field_defs.append(f'''    {n}: {{
+      type: {ts_type},
+      {props_str}
+    }}''')
 
-const {capitalized}Model = {{
-  getAll: async () => {{
-    const [rows] = await pool.query(`SELECT * FROM ${{tableName}}`);
-    return rows;
+    fields_str = ',\n'.join(field_defs)
+
+    return f'''import {{ DataTypes, Model }} from "sequelize";
+import sequelize from "../database/db";
+
+export interface {capitalized}I {{
+  id?: number;
+{chr(10).join(f'  {f["name"]}{"?" if not f.get("notNull") else ""}: {("number" if f["type"] in ("INTEGER","BIGINT","DECIMAL") else "boolean" if f["type"]=="BOOLEAN" else "string")};' for f in fields if f['name'] != 'id')}
+}}
+
+export class {capitalized} extends Model {{
+  public id!: number;
+{chr(10).join(f'  public {f["name"]}!: {("number" if f["type"] in ("INTEGER","BIGINT","DECIMAL") else "boolean" if f["type"]=="BOOLEAN" else "string")};' for f in fields if f['name'] != 'id')}
+}}
+
+{capitalized}.init(
+  {{
+{fields_str}
   }},
-
-  getById: async (id) => {{
-    const [rows] = await pool.query(`SELECT * FROM ${{tableName}} WHERE id = ?`, [id]);
-    return rows[0];
-  }},
-
-  create: async (data) => {{
-    const [result] = await pool.query(`INSERT INTO ${{tableName}} SET ?`, [data]);
-    return {{ id: result.insertId, ...data }};
-  }},
-
-  update: async (id, data) => {{
-    await pool.query(`UPDATE ${{tableName}} SET ? WHERE id = ?`, [data, id]);
-    return {{ id, ...data }};
-  }},
-
-  delete: async (id) => {{
-    const [result] = await pool.query(`DELETE FROM ${{tableName}} WHERE id = ?`, [id]);
-    return result.affectedRows > 0;
+  {{
+    sequelize,
+    modelName: "{capitalized}",
+    tableName: "{plural}",
+    timestamps: true
   }}
-}};
+);
 
-module.exports = {capitalized}Model;'''
+export default {capitalized};'''
 
 
 def generate_controller(entity, capitalized, fields):
@@ -324,71 +386,85 @@ def generate_controller(entity, capitalized, fields):
         field_names.append(n)
         create_obj_fields.append(n)
         if f.get('notNull', False):
-            required_checks.append(f"if (!{n}) {{\n        return res.status(400).json({{ error: '{n.capitalize()} es obligatorio' }});\n      }}")
+            required_checks.append(f"if (!{n}) {{\n        res.status(400).json({{ error: '{n.capitalize()} es obligatorio' }});\n        return;\n      }}")
 
     fields_destructure = ', '.join(field_names)
     create_obj = ', '.join(create_obj_fields)
     required_block = '\n      '.join(required_checks) if required_checks else ''
 
-    return f'''const {capitalized}Model = require('../models/{entity}.model');
+    return f'''import {{ Request, Response }} from 'express';
+import {capitalized}, {{ {capitalized}I }} from '../models/{entity}';
 
-const {capitalized}Controller = {{
-  getAll: async (req, res) => {{
+export class {capitalized}Controller {{
+
+  public async getAll(req: Request, res: Response): Promise<void> {{
     try {{
-      const items = await {capitalized}Model.getAll();
-      res.json({{ data: items }});
+      const items: {capitalized}I[] = await {capitalized}.findAll();
+      res.status(200).json({{ data: items }});
     }} catch (error) {{
       res.status(500).json({{ error: 'Error al obtener registros' }});
     }}
-  }},
+  }}
 
-  getById: async (req, res) => {{
+  public async getById(req: Request, res: Response): Promise<void> {{
     try {{
       const {{ id }} = req.params;
-      const item = await {capitalized}Model.getById(id);
-      if (!item) return res.status(404).json({{ error: 'No encontrado' }});
-      res.json({{ data: item }});
+      const item = await {capitalized}.findByPk(id);
+      if (!item) {{
+        res.status(404).json({{ error: 'No encontrado' }});
+        return;
+      }}
+      res.status(200).json({{ data: item }});
     }} catch (error) {{
       res.status(500).json({{ error: 'Error al obtener' }});
     }}
-  }},
+  }}
 
-  create: async (req, res) => {{
+  public async create(req: Request, res: Response): Promise<void> {{
     try {{
       const {{ {fields_destructure} }} = req.body;
       {required_block}
-      const newItem = await {capitalized}Model.create({{ {create_obj} }});
+      const newItem = await {capitalized}.create({{ {create_obj} }});
       res.status(201).json({{ data: newItem, mensaje: 'Creado correctamente' }});
-    }} catch (error) {{
+    }} catch (error: any) {{
+      if (error.name === 'SequelizeUniqueConstraintError') {{
+        res.status(400).json({{ error: 'Valor duplicado' }});
+        return;
+      }}
       res.status(500).json({{ error: 'Error al crear' }});
     }}
-  }},
+  }}
 
-  update: async (req, res) => {{
+  public async update(req: Request, res: Response): Promise<void> {{
     try {{
       const {{ id }} = req.params;
-      const item = await {capitalized}Model.getById(id);
-      if (!item) return res.status(404).json({{ error: 'No encontrado' }});
-      await {capitalized}Model.update(id, req.body);
-      res.json({{ mensaje: 'Actualizado correctamente' }});
+      const item = await {capitalized}.findByPk(id);
+      if (!item) {{
+        res.status(404).json({{ error: 'No encontrado' }});
+        return;
+      }}
+      await {capitalized}.update(req.body, {{ where: {{ id }} }});
+      res.status(200).json({{ mensaje: 'Actualizado correctamente' }});
     }} catch (error) {{
       res.status(500).json({{ error: 'Error al actualizar' }});
     }}
-  }},
+  }}
 
-  delete: async (req, res) => {{
+  public async delete(req: Request, res: Response): Promise<void> {{
     try {{
       const {{ id }} = req.params;
-      const eliminado = await {capitalized}Model.delete(id);
-      if (!eliminado) return res.status(404).json({{ error: 'No encontrado' }});
-      res.json({{ mensaje: 'Eliminado correctamente' }});
+      const item = await {capitalized}.findByPk(id);
+      if (!item) {{
+        res.status(404).json({{ error: 'No encontrado' }});
+        return;
+      }}
+      await {capitalized}.destroy({{ where: {{ id }} }});
+      res.status(200).json({{ mensaje: 'Eliminado correctamente' }});
     }} catch (error) {{
       res.status(500).json({{ error: 'Error al eliminar' }});
     }}
   }}
-}};
-
-module.exports = {capitalized}Controller;'''
+}}'''
 
 
 def generate_angular_model(entity, capitalized, fields):
@@ -505,7 +581,8 @@ def generate_angular_list_template(entity, capitalized, fields):
         for f in non_id
     )
     body_cells = '\n'.join(
-        f'        <td>{{{{ item.{f["name"]} }}}}</td>'
+        f'        <td>{{{{ item.{f["name"]} }}}}</td>' if f['type'] not in ('DECIMAL',) else
+        f'        <td>{{{{ item.{f["name"]} | currency }}}}</td>'
         for f in non_id
     )
     colspan = len(non_id) + 2
@@ -578,6 +655,14 @@ def generate_angular_form_component(entity, capitalized, fields):
 
     controls = ',\n'.join(control_lines)
 
+    has_text = any(f['type'] == 'TEXT' for f in fields)
+    extra_imports = []
+    if has_text:
+        extra_imports.append('InputTextareaModule')
+    extra_imports_str = ', '.join(extra_imports)
+    if extra_imports_str:
+        extra_imports_str = ', ' + extra_imports_str
+
     return f'''import {{ Component, OnInit }} from '@angular/core';
 import {{ CommonModule }} from '@angular/common';
 import {{ FormBuilder, ReactiveFormsModule, Validators }} from '@angular/forms';
@@ -593,8 +678,8 @@ import {{ {capitalized}Service }} from '../../services/{entity}.service';
 @Component({{
   selector: 'app-{entity}-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, ButtonModule,
-    InputTextModule, InputNumberModule, SelectModule, ToastModule],
+    imports: [CommonModule, ReactiveFormsModule, RouterModule, ButtonModule,
+    InputTextModule, InputNumberModule, InputTextareaModule, SelectModule, ToastModule{extra_imports_str}],
   providers: [MessageService],
   templateUrl: './{entity}-form.html'
 }})
@@ -663,6 +748,16 @@ def generate_angular_form_template(entity, capitalized, fields):
             return f'''        <div>
             <label class="block font-semibold mb-1{required_class}">{label}{asterisk}</label>
             <p-inputNumber formControlName="{n}" [min]="0" class="w-full" />
+          </div>'''
+        elif t == 'TEXT':
+            return f'''        <div>
+            <label class="block font-semibold mb-1{required_class}">{label}{asterisk}</label>
+            <textarea pInputTextarea formControlName="{n}" class="w-full" rows="3"></textarea>
+          </div>'''
+        elif t == 'BOOLEAN':
+            return f'''        <div>
+            <label class="block font-semibold mb-1{required_class}">{label}{asterisk}</label>
+            <p-select formControlName="{n}" [options]="[{{label:'Sí',value:true}},{{label:'No',value:false}}]" class="w-full"></p-select>
           </div>'''
         else:
             return f'''        <div>
@@ -766,16 +861,19 @@ def generate_code():
     model = generate_model(entity, plural, capitalized, fields, engine)
     controller = generate_controller(entity, capitalized, fields)
 
-    routes = f'''const router = require('express').Router();
-const controller = require('../controllers/{entity}.controller');
+    routes = f'''import {{ Router }} from 'express';
+import {{ {capitalized}Controller }} from '../controllers/{entity}.controller';
 
-router.get('/{plural}', controller.getAll);
-router.get('/{plural}/:id', controller.getById);
-router.post('/{plural}', controller.create);
-router.put('/{plural}/:id', controller.update);
-router.delete('/{plural}/:id', controller.delete);
+const router = Router();
+const controller = new {capitalized}Controller();
 
-module.exports = router;'''
+router.get('/', controller.getAll);
+router.get('/:id', controller.getById);
+router.post('/', controller.create);
+router.put('/:id', controller.update);
+router.delete('/:id', controller.delete);
+
+export default router;'''
 
     angular_model = generate_angular_model(entity, capitalized, fields)
 
@@ -786,7 +884,7 @@ import {{ {capitalized} }} from '../models/{entity}';
 
 @Injectable({{ providedIn: 'root' }})
 export class {capitalized}Service {{
-  private apiUrl = 'http://localhost:3000/api/{plural}';
+  private apiUrl = 'http://localhost:4000/api/{plural}';
 
   constructor(private http: HttpClient) {{ }}
 
@@ -806,7 +904,7 @@ export class {capitalized}Service {{
 
     seed = generate_seed(entity, capitalized, fields, engine)
     env_config = generate_env(entity, engine)
-    deps = f'npm install express cors dotenv sequelize {ENGINES[engine]["package"]}\nnpm install -D nodemon'
+    deps = f'npm install express cors morgan dotenv sequelize {ENGINES[engine]["package"]}\nnpm install -D typescript @types/node nodemon ts-node @types/express @types/morgan @types/cors @types/sequelize'
 
     http_client = generate_http_client(entity, plural)
 
@@ -838,17 +936,25 @@ export class {capitalized}Service {{
 
 def generate_env(entity, engine):
     if engine == 'sqlite':
-        return f'''PORT=3000
-DB_STORAGE=./database.sqlite
-JWT_SECRET=your_secret_key'''
+        return f'''PORT=4000
+DB_STORAGE=./database.sqlite'''
     info = ENGINES[engine]
-    return f'''PORT=3000
+    if engine == 'mysql':
+        return f'''PORT=4000
+
+DB_ENGINE=mysql
+
+MYSQL_HOST=localhost
+MYSQL_USER=root
+MYSQL_PASSWORD=
+MYSQL_NAME={entity}
+MYSQL_PORT={info['port']}'''
+    return f'''PORT=4000
 DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=
 DB_NAME={entity}
-DB_PORT={info['port']}
-JWT_SECRET=your_secret_key'''
+DB_PORT={info['port']}'''
 
 
 def generate_seed(entity, capitalized, fields, engine):
@@ -858,9 +964,18 @@ def generate_seed(entity, capitalized, fields, engine):
         if n == 'id' or n == 'created_at' or n == 'updated_at':
             continue
         t = f['type']
-        if t == 'VARCHAR':
-            field_assignments.append(f'      {n}: faker.commerce.productName(),')
-        elif t == 'TEXT':
+        # Detectar por nombre de campo para usar fakers semánticos
+        if n == 'email':
+            field_assignments.append(f'      {n}: faker.internet.email(),')
+        elif n in ('phone', 'telefono', 'celular', 'movil'):
+            field_assignments.append(f'      {n}: faker.phone.number(),')
+        elif n in ('status', 'estado'):
+            field_assignments.append(f'      {n}: faker.helpers.arrayElement(["ACTIVE", "INACTIVE"]),')
+        elif n in ('name', 'nombre', 'fullname', 'full_name', 'username', 'user', 'cliente'):
+            field_assignments.append(f'      {n}: faker.person.fullName(),')
+        elif n in ('address', 'direccion', 'street', 'calle', 'city', 'ciudad'):
+            field_assignments.append(f'      {n}: faker.location.streetAddress(),')
+        elif n in ('description', 'descripcion', 'detail', 'detalle', 'observacion', 'comment', 'comentario'):
             field_assignments.append(f'      {n}: faker.lorem.sentence(),')
         elif t in ('INTEGER', 'BIGINT'):
             field_assignments.append(f'      {n}: faker.number.int({{ min: 1, max: 100 }}),')
@@ -870,6 +985,8 @@ def generate_seed(entity, capitalized, fields, engine):
             field_assignments.append(f'      {n}: faker.datatype.boolean(),')
         elif t in ('DATE', 'TIMESTAMP'):
             field_assignments.append(f'      {n}: faker.date.past(),')
+        elif t == 'VARCHAR':
+            field_assignments.append(f'      {n}: faker.lorem.word(),')
         else:
             field_assignments.append(f'      {n}: faker.lorem.word(),')
 
@@ -878,49 +995,56 @@ def generate_seed(entity, capitalized, fields, engine):
 
     fa = '\n'.join(field_assignments)
 
-    return f'''const {{ faker }} = require('@faker-js/faker');
-const {capitalized} = require('../models/{entity}.model');
+    return f'''import sequelize from "../database/db";
+import {capitalized} from "../models/{entity}";
+import {{ faker }} from "@faker-js/faker";
 
 async function seed() {{
-  console.log('Insertando datos de prueba...');
-  for (let i = 0; i < 20; i++) {{
-    await {capitalized}.create({{
+  try {{
+    await sequelize.sync({{ force: false }});
+    console.log('Insertando datos de prueba...');
+    for (let i = 0; i < 20; i++) {{
+      await {capitalized}.create({{
 {fa}
-    }});
+      }});
+    }}
+    console.log('Datos insertados correctamente');
+    process.exit(0);
+  }} catch (error) {{
+    console.error(error);
+    process.exit(1);
   }}
-  console.log('Datos insertados correctamente');
-  process.exit(0);
 }}
 
-seed().catch(err => {{ console.error(err); process.exit(1); }});'''
+seed();'''
 
 
 def generate_http_client(entity, plural):
     return f'''### LISTAR TODOS (GET)
-GET http://localhost:3000/api/{plural}
+GET http://localhost:4000/api/{plural}
 
 ### OBTENER POR ID (GET)
-GET http://localhost:3000/api/{plural}/1
+GET http://localhost:4000/api/{plural}/1
 
 ### CREAR (POST)
-POST http://localhost:3000/api/{plural}
+POST http://localhost:4000/api/{plural}
 Content-Type: application/json
 
 {{
-  "nombre": "Ejemplo",
-  "descripcion": "Descripción del registro"
+  "name": "Ejemplo",
+  "email": "ejemplo@email.com"
 }}
 
 ### ACTUALIZAR (PUT)
-PUT http://localhost:3000/api/{plural}/1
+PUT http://localhost:4000/api/{plural}/1
 Content-Type: application/json
 
 {{
-  "nombre": "Ejemplo Actualizado"
+  "name": "Ejemplo Actualizado"
 }}
 
 ### ELIMINAR (DELETE)
-DELETE http://localhost:3000/api/{plural}/1
+DELETE http://localhost:4000/api/{plural}/1
 '''
 
 

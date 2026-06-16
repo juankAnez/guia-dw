@@ -50,89 +50,169 @@ const phases = [
         code: 'mkdir app-parcial\ncd app-parcial\nmkdir backend\ncd backend\nnpm init -y'
       },
       {
-        title: 'Instalar dependencias',
+        title: 'Instalar dependencias (producción)',
         isTable: true,
         headers: ['Dependencia', 'Para qué sirve'],
         rows: [
           ['express', 'Framework para crear el servidor web'],
-          ['mysql2', 'Conector con la base de datos MySQL'],
+          ['sequelize', 'ORM para conectar con MySQL'],
+          ['mysql2', 'Controlador nativo de MySQL para Sequelize'],
           ['cors', 'Permite que Angular se comunique con el backend'],
-          ['dotenv', 'Lee variables de entorno desde .env'],
-          ['nodemon (-D)', 'Reinicia el servidor automáticamente al guardar']
+          ['morgan', 'Muestra en consola cada petición HTTP'],
+          ['dotenv', 'Lee variables de entorno desde .env']
+        ]
+      },
+      {
+        title: 'Instalar dependencias (desarrollo)',
+        isTable: true,
+        headers: ['Dependencia', 'Para qué sirve'],
+        rows: [
+          ['typescript', 'Compilador de TypeScript a JavaScript'],
+          ['ts-node', 'Ejecuta TypeScript directamente'],
+          ['nodemon', 'Reinicia el servidor automáticamente al guardar'],
+          ['@types/express', 'Tipos de Express para TypeScript'],
+          ['@types/morgan', 'Tipos de Morgan para TypeScript'],
+          ['@types/cors', 'Tipos de CORS para TypeScript'],
+          ['@types/node', 'Tipos de Node.js para TypeScript'],
+          ['@types/sequelize', 'Tipos de Sequelize para TypeScript']
         ]
       },
       {
         title: 'Comando de instalación',
-        code: 'npm install express mysql2 cors dotenv\nnpm install -D nodemon'
+        code: 'npm install express cors morgan dotenv sequelize mysql2\nnpm install -D typescript @types/node nodemon ts-node @types/express @types/morgan @types/cors @types/sequelize'
       },
       {
-        title: 'Estructura de carpetas',
-        content: 'Crea esta estructura dentro de backend/',
-        code: 'backend/\n├── node_modules/\n├── src/\n│   ├── config/\n│   │   └── db.js\n│   ├── controllers/\n│   │   └── producto.controller.js  ← REEMPLAZAR\n│   ├── models/\n│   │   └── producto.model.js       ← REEMPLAZAR\n│   ├── routes/\n│   │   └── producto.routes.js      ← REEMPLAZAR\n│   └── app.js\n├── .env\n├── .gitignore\n├── package.json\n└── server.js'
+        title: 'Inicializar TypeScript',
+        code: 'npx tsc --init',
+        verify: 'Se crea tsconfig.json. Luego reemplázalo con la configuración correcta (ver siguiente paso)'
+      },
+      {
+        title: 'Configurar tsconfig.json',
+        content: 'Reemplaza el contenido generado con esta configuración para que TypeScript funcione con Express y Sequelize',
+        code: `{
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "commonjs",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "verbatimModuleSyntax": false,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}`
+      },
+      {
+        title: 'Estructura de carpetas (calcada del docente)',
+        content: 'Crea esta estructura dentro de backend/ con TypeScript + Sequelize',
+        code: 'backend/\n├── node_modules/\n├── src/\n│   ├── config/\n│   │   └── index.ts           ← Clase App\n│   ├── controllers/\n│   │   └── cliente.controller.ts  ← REEMPLAZAR\n│   ├── database/\n│   │   └── db.ts              ← Sequelize connection\n│   ├── faker/\n│   │   └── seed.ts            ← Datos de prueba\n│   ├── http/\n│   │   └── clientes.http      ← Pruebas REST\n│   ├── models/\n│   │   └── Cliente.ts              ← REEMPLAZAR\n│   ├── routes/\n│   │   └── cliente.routes.ts       ← REEMPLAZAR\n│   └── server.ts              ← Punto de entrada\n├── .env\n├── .gitignore\n├── package.json\n└── tsconfig.json'
       },
       {
         title: 'Crear carpetas (atajo)',
-        code: 'mkdir -p src/config src/controllers src/models src/routes'
+        code: 'mkdir -p src/config src/controllers src/database src/faker src/http src/models src/routes'
       },
       {
         title: 'Variables de entorno (.env)',
         content: 'Crea backend/.env. <span class="replace-marker">⚠️ REEMPLAZA</span> DB_PASSWORD con tu contraseña MySQL',
-        code: 'PORT=3000\nDB_HOST=localhost\nDB_USER=root\nDB_PASSWORD=   ← TU CONTRASEÑA\nDB_NAME=bd_productos    ← REEMPLAZAR\nDB_PORT=3306'
+        code: 'PORT=4000\n\nDB_ENGINE=mysql\n\nMYSQL_HOST=localhost\nMYSQL_USER=root\nMYSQL_PASSWORD=   ← TU CONTRASEÑA\nMYSQL_NAME=bd_clientes    ← REEMPLAZAR\nMYSQL_PORT=3306'
       },
       {
-        title: 'Conexión BD (src/config/db.js)',
-        code: `const mysql = require('mysql2/promise');
-require('dotenv').config();
+        title: 'Conexión BD (src/database/db.ts) — Sequelize',
+        code: `import { Sequelize } from "sequelize";
+import dotenv from "dotenv";
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'bd_productos',
-  port: parseInt(process.env.DB_PORT) || 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+dotenv.config();
 
-module.exports = pool;`
+export const sequelize = new Sequelize(
+  process.env.MYSQL_NAME || 'bd_clientes',
+  process.env.MYSQL_USER || 'root',
+  process.env.MYSQL_PASSWORD || '',
+  {
+    host: process.env.MYSQL_HOST || 'localhost',
+    port: parseInt(process.env.MYSQL_PORT || '3306'),
+    dialect: 'mysql',
+    logging: false,
+    pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
+  }
+);
+
+export const testConnection = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('Conexión exitosa');
+    return true;
+  } catch (error) {
+    console.error('Error de conexión:', error);
+    return false;
+  }
+};`
       },
       {
-        title: 'Servidor Express (src/app.js)',
-        code: `const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+        title: 'Configuración principal (src/config/index.ts) — Clase App',
+        code: `import dotenv from "dotenv";
+dotenv.config();
+import express, { Application } from "express";
+import morgan from "morgan";
+import { sequelize, testConnection } from "../database/db";
+import cors from "cors";
+import clienteRoutes from '../routes/cliente.routes';
 
-const productoRoutes = require('./routes/producto.routes');
-
-const app = express();
-
-app.use(cors({ origin: 'http://localhost:4200' }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.use('/api', productoRoutes);
-
-app.get('/', (req, res) => {
-  res.json({ mensaje: 'API funcionando correctamente' });
-});
-
-module.exports = app;`
+export class App {
+  public app: Application;
+  constructor(private port?: number | string) {
+    this.app = express();
+    this.settings();
+    this.middlewares();
+    this.routes();
+    this.dbConnection();
+  }
+  private settings(): void {
+    this.app.set('port', this.port || process.env.PORT || 4000);
+  }
+  private middlewares(): void {
+    this.app.use(morgan('dev'));
+    this.app.use(cors());
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: false }));
+  }
+  private routes(): void {
+    this.app.use('/api/clientes', clienteRoutes);
+  }
+  private async dbConnection(): Promise<void> {
+    try {
+      const isConnected = await testConnection();
+      if (!isConnected) throw new Error('No se pudo conectar');
+      await sequelize.sync({ force: false });
+      console.log('BD sincronizada');
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  }
+  async listen() {
+    await this.app.listen(this.app.get('port'));
+    console.log(\`Servidor en puerto \${this.app.get('port')}\`);
+  }
+}`
       },
       {
-        title: 'Punto de entrada (server.js)',
-        code: `const app = require('./src/app');
+        title: 'Punto de entrada (src/server.ts)',
+        code: `import { App } from './config/index';
 
-const PORT = process.env.PORT || 3000;
+async function main() {
+  const app = new App();
+  await app.listen();
+}
 
-app.listen(PORT, () => {
-  console.log(\`Servidor corriendo en http://localhost:\${PORT}\`);
-});`
+main();`
       },
       {
         title: 'Scripts en package.json',
-        content: 'Reemplazar la sección "scripts" en package.json',
-        code: '"scripts": {\n  "start": "node server.js",\n  "dev": "nodemon server.js"\n}'
+        content: 'Reemplazar la sección "scripts" en package.json con TypeScript',
+        code: '"scripts": {\n  "build": "tsc",\n  "start": "node dist/server.js",\n  "dev": "nodemon src/server.ts"\n}'
       },
       {
         title: '.gitignore',
@@ -143,7 +223,7 @@ app.listen(PORT, () => {
         title: 'Probar que el servidor inicia',
         content: 'Ejecuta el servidor y verifica en el navegador',
         code: 'npm run dev',
-        verify: 'Abrir http://localhost:3000 → {"mensaje":"API funcionando correctamente"}'
+        verify: 'Abrir http://localhost:4000/api/clientes → {"data":[]} (aún vacío, BD conectada)'
       }
     ]
   },
@@ -192,37 +272,41 @@ app.listen(PORT, () => {
         content: 'El modelo define cómo se conecta y consulta la base de datos desde Node.js. Cada función ejecuta una consulta SQL.'
       },
       {
-        title: 'Plantilla del modelo',
-        content: 'Crea <code>backend/src/models/producto.model.js</code>. <span class="replace-marker">⚠️ REEMPLAZA:</span> tableName, allowedFields y nombre del objeto',
-        code: `const pool = require('../config/db');
+        title: 'Plantilla del modelo (TypeScript + Sequelize)',
+        content: 'Crea <code>backend/src/models/Cliente.ts</code>. <span class="replace-marker">⚠️ REEMPLAZA:</span> nombre, interface y campos',
+        code: `import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../database/db";
 
-const tableName = 'productos'; // ← REEMPLAZAR
-const allowedFields = ['nombre', 'descripcion', 'precio', 'cantidad', 'estado']; // ← REEMPLAZAR
+export interface ClienteI {
+  id?: number;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  status: "ACTIVE" | "INACTIVE";
+}
 
-const ProductoModel = {
-  getAll: async () => {
-    const [rows] = await pool.query(\`SELECT * FROM \${tableName}\`);
-    return rows;
-  },
-  getById: async (id) => {
-    const [rows] = await pool.query(\`SELECT * FROM \${tableName} WHERE id = ?\`, [id]);
-    return rows[0];
-  },
-  create: async (data) => {
-    const [result] = await pool.query(\`INSERT INTO \${tableName} SET ?\`, [data]);
-    return { id: result.insertId, ...data };
-  },
-  update: async (id, data) => {
-    await pool.query(\`UPDATE \${tableName} SET ? WHERE id = ?\`, [data, id]);
-    return { id, ...data };
-  },
-  delete: async (id) => {
-    const [result] = await pool.query(\`DELETE FROM \${tableName} WHERE id = ?\`, [id]);
-    return result.affectedRows > 0;
-  }
-};
+export class Cliente extends Model {
+  public id!: number;
+  public name!: string;
+  public email!: string;
+  public phone!: string;
+  public address!: string;
+  public status!: "ACTIVE" | "INACTIVE";
+}
 
-module.exports = ProductoModel;`
+Cliente.init(
+  {
+    name: { type: DataTypes.STRING, allowNull: false },
+    email: { type: DataTypes.STRING, allowNull: false, unique: true },
+    phone: { type: DataTypes.STRING, allowNull: true },
+    address: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.ENUM("ACTIVE", "INACTIVE"), defaultValue: "ACTIVE" }
+  },
+  { sequelize, modelName: "Cliente", tableName: "clientes", timestamps: true }
+);
+
+export default Cliente;`
       }
     ]
   },
@@ -237,69 +321,69 @@ module.exports = ProductoModel;`
         content: 'Recibe las peticiones HTTP y responde usando el modelo. Cada método corresponde a una operación CRUD.'
       },
       {
-        title: 'Plantilla del controlador',
-        content: 'Crea <code>backend/src/controllers/producto.controller.js</code>. <span class="replace-marker">⚠️ REEMPLAZA</span> nombres y campos',
-        code: `const ProductoModel = require('../models/producto.model');
+        title: 'Plantilla del controlador (TypeScript + Sequelize)',
+        content: 'Crea <code>backend/src/controllers/cliente.controller.ts</code>. <span class="replace-marker">⚠️ REEMPLAZA</span> nombres y campos',
+        code: `import { Request, Response } from 'express';
+import Cliente, { ClienteI } from '../models/Cliente';
 
-const ProductoController = {
-  getAll: async (req, res) => {
+export class ClienteController {
+  public async getAll(req: Request, res: Response): Promise<void> {
     try {
-      const items = await ProductoModel.getAll();
-      res.json({ data: items });
+      const items: ClienteI[] = await Cliente.findAll();
+      res.status(200).json({ data: items });
     } catch (error) {
       res.status(500).json({ error: 'Error al obtener registros' });
     }
-  },
+  }
 
-  getById: async (req, res) => {
+  public async getById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const item = await ProductoModel.getById(id);
-      if (!item) return res.status(404).json({ error: 'No encontrado' });
-      res.json({ data: item });
+      const item = await Cliente.findByPk(id);
+      if (!item) { res.status(404).json({ error: 'No encontrado' }); return; }
+      res.status(200).json({ data: item });
     } catch (error) {
       res.status(500).json({ error: 'Error al obtener' });
     }
-  },
+  }
 
-  create: async (req, res) => {
+  public async create(req: Request, res: Response): Promise<void> {
     try {
-      const { nombre, descripcion, precio, cantidad, estado } = req.body;
-      if (!nombre || !precio) {
-        return res.status(400).json({ error: 'Nombre y precio son obligatorios' });
+      const { name, email, phone, address, status } = req.body;
+      if (!name || !email) {
+        res.status(400).json({ error: 'Name y email obligatorios' }); return;
       }
-      const newItem = await ProductoModel.create({ nombre, descripcion, precio, cantidad, estado });
+      const newItem = await Cliente.create({ name, email, phone, address, status });
       res.status(201).json({ data: newItem, mensaje: 'Creado correctamente' });
     } catch (error) {
       res.status(500).json({ error: 'Error al crear' });
     }
-  },
+  }
 
-  update: async (req, res) => {
+  public async update(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const item = await ProductoModel.getById(id);
-      if (!item) return res.status(404).json({ error: 'No encontrado' });
-      await ProductoModel.update(id, req.body);
-      res.json({ mensaje: 'Actualizado correctamente' });
+      const item = await Cliente.findByPk(id);
+      if (!item) { res.status(404).json({ error: 'No encontrado' }); return; }
+      await Cliente.update(req.body, { where: { id } });
+      res.status(200).json({ mensaje: 'Actualizado correctamente' });
     } catch (error) {
       res.status(500).json({ error: 'Error al actualizar' });
     }
-  },
+  }
 
-  delete: async (req, res) => {
+  public async delete(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const eliminado = await ProductoModel.delete(id);
-      if (!eliminado) return res.status(404).json({ error: 'No encontrado' });
-      res.json({ mensaje: 'Eliminado correctamente' });
+      const item = await Cliente.findByPk(id);
+      if (!item) { res.status(404).json({ error: 'No encontrado' }); return; }
+      await Cliente.destroy({ where: { id } });
+      res.status(200).json({ mensaje: 'Eliminado correctamente' });
     } catch (error) {
       res.status(500).json({ error: 'Error al eliminar' });
     }
   }
-};
-
-module.exports = ProductoController;`
+}`
       }
     ]
   },
@@ -314,27 +398,34 @@ module.exports = ProductoController;`
         content: 'Conectan las URL de la API con los métodos del controlador.'
       },
       {
-        title: 'Plantilla de rutas',
-        content: 'Crea <code>backend/src/routes/producto.routes.js</code>. <span class="replace-marker">⚠️ REEMPLAZA</span> "/productos" por tu entidad',
-        code: `const router = require('express').Router();
-const controller = require('../controllers/producto.controller');
+        title: 'Plantilla de rutas (TypeScript)',
+        content: 'Crea <code>backend/src/routes/cliente.routes.ts</code>. <span class="replace-marker">⚠️ REEMPLAZA</span> según tu entidad',
+        code: `import { Router } from 'express';
+import { ClienteController } from '../controllers/cliente.controller';
 
-router.get('/productos', controller.getAll);
-router.get('/productos/:id', controller.getById);
-router.post('/productos', controller.create);
-router.put('/productos/:id', controller.update);
-router.delete('/productos/:id', controller.delete);
+const router = Router();
+const controller = new ClienteController();
 
-module.exports = router;`
+router.get('/', controller.getAll);
+router.get('/:id', controller.getById);
+router.post('/', controller.create);
+router.put('/:id', controller.update);
+router.delete('/:id', controller.delete);
+
+export default router;`
       },
       {
-        title: 'Registrar rutas en app.js',
-        content: 'Verifica que app.js tenga: <code>app.use(\'/api\', productoRoutes)</code>'
+        title: 'Registrar rutas en config/index.ts',
+        content: 'Dentro del método <code>private routes()</code> de la clase App: <br><code>this.app.use(\'/api/clientes\', clienteRoutes);</code>'
+      },
+      {
+        title: 'Registrar ruta en config/index.ts',
+        content: 'Agregar <code>import clienteRoutes from \'../routes/cliente.routes\';</code> al inicio del archivo'
       },
       {
         title: 'Verificar',
         code: 'npm run dev',
-        verify: 'GET http://localhost:3000/api/productos → {"data":[]}'
+        verify: 'GET http://localhost:4000/api/clientes → {"data":[]}'
       }
     ]
   },
@@ -351,33 +442,34 @@ module.exports = router;`
       {
         title: 'Ejemplo de archivo .http',
         code: `### LISTAR TODOS (GET)
-GET http://localhost:3000/api/productos
+GET http://localhost:4000/api/clientes
 
 ### OBTENER POR ID (GET)
-GET http://localhost:3000/api/productos/1
+GET http://localhost:4000/api/clientes/1
 
 ### CREAR (POST)
-POST http://localhost:3000/api/productos
+POST http://localhost:4000/api/clientes
 Content-Type: application/json
 
 {
-  "nombre": "Laptop",
-  "precio": 2500000,
-  "cantidad": 10,
-  "estado": "ACTIVO"
+  "name": "Juan Pérez",
+  "email": "juan@email.com",
+  "phone": "3001234567",
+  "address": "Calle 123",
+  "status": "ACTIVE"
 }
 
 ### ACTUALIZAR (PUT)
-PUT http://localhost:3000/api/productos/1
+PUT http://localhost:4000/api/clientes/1
 Content-Type: application/json
 
 {
-  "nombre": "Laptop Pro",
-  "precio": 3000000
+  "name": "Juan Actualizado",
+  "email": "juan.nuevo@email.com"
 }
 
 ### ELIMINAR (DELETE)
-DELETE http://localhost:3000/api/productos/1`
+DELETE http://localhost:4000/api/clientes/1`
       },
       {
         title: 'Cómo usar',
@@ -422,7 +514,7 @@ DELETE http://localhost:3000/api/productos/1`
         code: `import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { providePrimeNG } from 'primeng/config';
 import Aura from '@primeuix/themes/aura';
 import { routes } from './app.routes';
@@ -432,7 +524,7 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideAnimationsAsync(),
-    provideHttpClient(),
+    provideHttpClient(withInterceptorsFromDi()),
     providePrimeNG({ theme: { preset: Aura } })
   ]
 };`
@@ -459,24 +551,24 @@ export const appConfig: ApplicationConfig = {
         code: `import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Producto } from '../models/producto';
+import { Cliente } from '../models/cliente';
 
 @Injectable({ providedIn: 'root' })
-export class ProductoService {
-  private apiUrl = 'http://localhost:3000/api/productos';
+export class ClienteService {
+  private apiUrl = 'http://localhost:4000/api/clientes';
 
   constructor(private http: HttpClient) {}
 
-  getAll(): Observable<{ data: Producto[] }> {
-    return this.http.get<{ data: Producto[] }>(this.apiUrl);
+  getAll(): Observable<{ data: Cliente[] }> {
+    return this.http.get<{ data: Cliente[] }>(this.apiUrl);
   }
-  getById(id: number): Observable<{ data: Producto }> {
-    return this.http.get<{ data: Producto }>(\`\${this.apiUrl}/\${id}\`);
+  getById(id: number): Observable<{ data: Cliente }> {
+    return this.http.get<{ data: Cliente }>(\`\${this.apiUrl}/\${id}\`);
   }
-  create(data: Producto): Observable<any> {
+  create(data: Cliente): Observable<any> {
     return this.http.post(this.apiUrl, data);
   }
-  update(id: number, data: Producto): Observable<any> {
+  update(id: number, data: Cliente): Observable<any> {
     return this.http.put(\`\${this.apiUrl}/\${id}\`, data);
   }
   delete(id: number): Observable<any> {
@@ -755,12 +847,12 @@ export class ProductoForm implements OnInit {
     steps: [
       {
         title: 'Diagrama del flujo',
-        content: 'Frontend (Angular :4200) → HTTP/JSON → Backend (Node.js :3000) → SQL → MySQL',
-        code: `┌─────────────┐      HTTP      ┌──────────┐     SQL     ┌──────────────┐
-│   ANGULAR   │ ──────────────▶ │  NODE.JS │ ──────────▶ │    MYSQL     │
-│  Frontend   │ ◀────────────── │  Express │ ◀────────── │  Base de     │
-│  :4200      │     JSON        │  :3000   │   Datos     │  Datos       │
-└─────────────┘                 └──────────┘             └──────────────┘`
+        content: 'Frontend (Angular :4200) → HTTP/JSON → Backend (Node.js :4000) → Sequelize → MySQL',
+        code: `┌─────────────┐      HTTP      ┌──────────┐   Sequelize  ┌──────────────┐
+│   ANGULAR   │ ──────────────▶ │  NODE.JS │ ────────────▶ │    MYSQL     │
+│  Frontend   │ ◀────────────── │  Express │ ◀──────────── │  Base de     │
+│  :4200      │     JSON        │  :4000   │     ORM       │  Datos       │
+└─────────────┘                 └──────────┘               └──────────────┘`
       },
       {
         title: 'Componentes que deben estar corriendo',
@@ -768,7 +860,7 @@ export class ProductoForm implements OnInit {
         headers: ['Componente', 'Comando', 'Puerto'],
         rows: [
           ['MySQL', 'Servicio de Windows o XAMPP', '3306'],
-          ['Backend', 'cd backend && npm run dev', '3000'],
+          ['Backend', 'cd backend && npm run dev', '4000'],
           ['Frontend', 'cd frontend && ng serve', '4200']
         ]
       },
@@ -788,10 +880,10 @@ export class ProductoForm implements OnInit {
       { id: 'chk-backend', text: 'Backend inicia sin errores (npm run dev)' },
       { id: 'chk-angular', text: 'Angular compila sin errores (ng serve)' },
       { id: 'chk-mysql', text: 'MySQL está corriendo y la BD existe' },
-      { id: 'chk-get', text: 'GET /api/productos devuelve datos' },
-      { id: 'chk-post', text: 'POST /api/productos crea registros' },
-      { id: 'chk-put', text: 'PUT /api/productos/:id actualiza' },
-      { id: 'chk-delete', text: 'DELETE /api/productos/:id elimina' },
+      { id: 'chk-get', text: 'GET /api/clientes devuelve datos' },
+      { id: 'chk-post', text: 'POST /api/clientes crea registros' },
+      { id: 'chk-put', text: 'PUT /api/clientes/:id actualiza' },
+      { id: 'chk-delete', text: 'DELETE /api/clientes/:id elimina' },
       { id: 'chk-list', text: 'Angular muestra lista desde la BD' },
       { id: 'chk-create-ui', text: 'Formulario de creación funciona' },
       { id: 'chk-edit-ui', text: 'Formulario de edición funciona' },

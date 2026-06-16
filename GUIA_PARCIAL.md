@@ -1,9 +1,10 @@
 # GUÍA PRÁCTICA PARA EL PARCIAL
-## Node.js + Express + MySQL + Angular — CRUD de una sola entidad
+## Node.js + Express + TypeScript + Sequelize + MySQL + Angular — CRUD de una sola entidad
 
 > ⚠️ **LEE ESTO PRIMERO:** Esta guía está diseñada para que completes el parcial paso a paso.
 > Todo lo que dice `REEMPLAZAR` significa que debes cambiarlo según la entidad que te dé el docente.
-> La entidad de ejemplo usada aquí es **PRODUCTO** (con campos: id, nombre, descripción, precio, cantidad, estado).
+> La entidad de ejemplo usada aquí es **CLIENTE** (con campos: id, name, email, phone, address, status).
+> Esta guía es una versión corregida y funcional calcada de la guía del docente, usando **TypeScript**, **Sequelize** como ORM, **Express** y **MySQL**.
 
 ---
 
@@ -13,7 +14,7 @@
 
 | Programa | Versión mínima | Por qué lo necesitas |
 |----------|---------------|----------------------|
-| **Node.js** | 18.x LTS | Para ejecutar el backend (servidor) |
+| **Node.js** | 18.x LTS | Para ejecutar el backend (servidor) con TypeScript |
 | **Angular CLI** | 18.x | Para crear y compilar el frontend |
 | **MySQL** | 8.x | Base de datos donde se guardarán los datos |
 | **VS Code** | Última | Editor de código recomendado |
@@ -58,7 +59,7 @@ Qué hacer:       Descargar MySQL Installer de https://dev.mysql.com/downloads/i
 Por qué:         MySQL será la base de datos donde se almacenarán los registros
 Comando exacto:  No aplica (instalación gráfica)
 Verificar:       mysql --version
-                 → debe mostrar "mysql Ver 8.x.x"
+                 → debe mostrar "mysql  Ver 8.x.x"
 ```
 Alternativa: Usar **XAMPP** (incluye phpMyAdmin para administrar MySQL visualmente).
 
@@ -67,7 +68,6 @@ Alternativa: Usar **XAMPP** (incluye phpMyAdmin para administrar MySQL visualmen
 | Extensión | Para qué sirve |
 |-----------|---------------|
 | `Prettier` | Formatea el código automáticamente |
-| `ES7+ React/Redux/React-Native snippets` | Atajos JS útiles |
 | `MySQL` (de cweijan) | Conectar y ver la BD desde VS Code |
 | `Thunder Client` | Probar endpoints sin salir del editor |
 
@@ -86,15 +86,15 @@ mysql --version  # → mysql Ver 8.x.x
 
 ---
 
-## FASE 1 — CREACIÓN DEL BACKEND
+## FASE 1 — CREACIÓN DEL BACKEND (NODE + EXPRESS + TYPESCRIPT)
 
-### 1.1 Crear el proyecto
+### 1.1 Crear la carpeta del proyecto
 
 ```
-Qué hacer:       Crear carpeta para el proyecto y un subdirectorio backend
-Por qué:         Separar backend del frontend en carpetas diferentes
-Comando exacto:
+Qué hacer:       Crear carpeta principal y subcarpeta backend
+Por qué:         El backend y el frontend van en carpetas separadas
 ```
+
 ```bash
 mkdir app-parcial
 cd app-parcial
@@ -102,570 +102,1099 @@ mkdir backend
 cd backend
 npm init -y
 ```
+
 ```
-Resultado:       Se crea la carpeta backend/ con un archivo package.json
+Resultado:       Se crea backend/ con un package.json
 ```
 
-### 1.2 Instalar dependencias
+### 1.2 Instalar dependencias del backend
+
+**Dependencias de producción:**
+```
+Qué hacer:       Instalar los paquetes que el servidor necesita para funcionar
+```
 
 ```bash
-npm install express mysql2 cors dotenv
-npm install -D nodemon
+npm install express cors morgan dotenv sequelize mysql2
 ```
 
 | Dependencia | ¿Para qué sirve? |
 |-------------|------------------|
 | `express` | Framework para crear el servidor web |
-| `mysql2` | Conector con la base de datos MySQL |
 | `cors` | Permite que Angular se comunique con el backend |
-| `dotenv` | Lee variables de entorno desde un archivo .env |
+| `morgan` | Muestra en consola cada petición HTTP (logging) |
+| `dotenv` | Lee variables de entorno desde el archivo .env |
+| `sequelize` | ORM para conectar y operar la base de datos MySQL |
+| `mysql2` | Controlador nativo de MySQL para Node.js |
+
+**Dependencias de desarrollo:**
+```
+Qué hacer:       Instalar TypeScript y sus tipos para desarrollo
+```
+
+```bash
+npm install -D typescript @types/node nodemon ts-node
+npm install -D @types/express @types/morgan @types/cors @types/sequelize
+```
+
+| Dependencia | ¿Para qué sirve? |
+|-------------|------------------|
+| `typescript` | El compilador de TypeScript a JavaScript |
+| `@types/node` | Tipos de Node.js para TypeScript |
 | `nodemon` | Reinicia el servidor automáticamente al guardar cambios |
+| `ts-node` | Ejecuta archivos .ts directamente sin compilar |
+| `@types/express` | Tipos de Express para TypeScript |
+| `@types/morgan` | Tipos de Morgan para TypeScript |
+| `@types/cors` | Tipos de CORS para TypeScript |
+| `@types/sequelize` | Tipos de Sequelize para TypeScript |
 
-### 1.3 Estructura de carpetas
+### 1.3 Inicializar TypeScript
 
-Dentro de la carpeta `backend/`, crea esta estructura:
+```
+Qué hacer:       Generar el archivo tsconfig.json con la configuración del compilador
+```
+
+```bash
+npx tsc --init
+```
+
+```
+Resultado:       Se crea tsconfig.json en la raíz de backend/
+```
+
+### 1.4 Configurar tsconfig.json
+
+```
+Qué hacer:       Modificar tsconfig.json para que funcione con Express y Sequelize
+Por qué:         TypeScript necesita saber dónde está el código fuente y dónde dejar el compilado
+```
+
+Abre `backend/tsconfig.json` y **reemplaza TODO** su contenido con esto:
+
+```json
+{
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "commonjs",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "verbatimModuleSyntax": false,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+| Opción | ¿Qué hace? |
+|--------|-----------|
+| `"module": "commonjs"` | Usa el sistema de módulos de Node.js (require/module.exports) |
+| `"rootDir": "./src"` | El código fuente está en la carpeta src/ |
+| `"outDir": "./dist"` | El código compilado se guarda en dist/ |
+| `"esModuleInterop": true` | Permite importar módulos CommonJS con sintaxis ES |
+| `"strict": true` | Activa todas las validaciones de tipos |
+| `"skipLibCheck": true` | Omite revisar tipos en node_modules (acelera compilación) |
+
+**⚠️ Error común:** Si el `outDir` no coincide con `rootDir`, TypeScript da error de compilación.
+```
+Solución: Verifica que rootDir apunte a ./src y outDir a ./dist
+```
+
+### 1.5 Configurar scripts en package.json
+
+```
+Qué hacer:       Modificar los scripts del package.json para compilar y ejecutar
+```
+
+Abre `backend/package.json` y **reemplaza** la sección `"scripts"` con esto:
+
+```json
+"scripts": {
+  "build": "tsc",
+  "start": "node dist/server.js",
+  "dev": "nodemon src/server.ts"
+}
+```
+
+| Script | Comando | ¿Qué hace? |
+|--------|---------|-----------|
+| `build` | `tsc` | Compila TypeScript → JavaScript en dist/ |
+| `start` | `node dist/server.js` | Ejecuta el servidor compilado (producción) |
+| `dev` | `nodemon src/server.ts` | Ejecuta en desarrollo con recarga automática |
+
+**⚠️ `nodemon src/server.ts` funciona sin `--exec ts-node` porque nodemon 3+ detecta automáticamente ts-node cuando está instalado en el proyecto.**
+
+### 1.6 Crear estructura de carpetas
+
+```
+Qué hacer:       Crear las carpetas del backend según la arquitectura del docente
+Por qué:         El docente evalúa la estructura de carpetas
+```
+
+```bash
+mkdir src
+mkdir src\config
+mkdir src\controllers
+mkdir src\database
+mkdir src\faker
+mkdir src\http
+mkdir src\models
+mkdir src\routes
+```
+
+**Árbol final de backend/:**
 
 ```
 backend/
-├── node_modules/       # (se crea automática al instalar)
 ├── src/
 │   ├── config/
-│   │   └── db.js       # Conexión a la base de datos
+│   │   └── index.ts          # Clase App (configuración principal)
 │   ├── controllers/
-│   │   └── producto.controller.js   # ← REEMPLAZAR según tu entidad
+│   │   └── cliente.controller.ts    # ← REEMPLAZAR
+│   ├── database/
+│   │   └── db.ts             # Conexión Sequelize a MySQL
+│   ├── faker/
+│   │   └── seed.ts           # Datos de prueba con @faker-js/faker
+│   ├── http/
+│   │   └── clientes.http     # Pruebas de endpoints
 │   ├── models/
-│   │   └── producto.model.js        # ← REEMPLAZAR según tu entidad
+│   │   └── Cliente.ts             # ← REEMPLAZAR (modelo Sequelize)
 │   ├── routes/
-│   │   └── producto.routes.js       # ← REEMPLAZAR según tu entidad
-│   └── app.js           # Configuración del servidor
-├── .env                 # Variables de entorno
+│   │   └── cliente.routes.ts      # ← REEMPLAZAR
+│   └── server.ts             # Punto de entrada del servidor
+├── .env                      # Variables de entorno
 ├── .gitignore
 ├── package.json
-└── server.js            # Punto de entrada
+└── tsconfig.json
 ```
 
-<details>
-<summary>📁 Cómo crear todas las carpetas de una vez (click para expandir)</summary>
-
-```bash
-mkdir -p src/config src/controllers src/models src/routes
-```
-</details>
-
-### 1.4 Archivo .env (variables de entorno)
+### 1.7 Crear archivo .env (variables de entorno)
 
 ```
 Qué hacer:       Crear el archivo .env en la raíz de backend/
-Por qué:         Guardar configuraciones sin exponerlas en el código (seguridad)
+Por qué:         Guardar configuraciones sin exponerlas en el código
 ```
 
 Crea `backend/.env` con este contenido:
 
 ```env
-PORT=3000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=   # ← PON AQUÍ TU CONTRASEÑA DE MySQL
-DB_NAME=bd_productos    # ← REEMPLAZAR: nombre de tu base de datos
-DB_PORT=3306
+PORT=4000
+
+DB_ENGINE=mysql
+
+MYSQL_HOST=localhost
+MYSQL_USER=root
+MYSQL_PASSWORD=
+MYSQL_NAME=bd_clientes
+MYSQL_PORT=3306
 ```
 
-**⚠️ IMPORTANTE:** `DB_PASSWORD` debe ser la contraseña que pusiste al instalar MySQL.
-Si no tienes contraseña, déjalo vacío: `DB_PASSWORD=`
+| Variable | ¿Qué es? | REEMPLAZAR |
+|----------|----------|-----------|
+| `PORT` | Puerto del servidor backend (4000) | No se cambia |
+| `DB_ENGINE` | Motor de BD (solo mysql) | No se cambia |
+| `MYSQL_HOST` | Dirección del servidor MySQL | `localhost` |
+| `MYSQL_USER` | Usuario de MySQL | `root` |
+| `MYSQL_PASSWORD` | Contraseña de MySQL | **PON LA TUYA** |
+| `MYSQL_NAME` | Nombre de la base de datos | `bd_clientes` → **el de tu entidad** |
+| `MYSQL_PORT` | Puerto de MySQL | `3306` |
 
-### 1.5 Conexión a la base de datos
+**⚠️ IMPORTANTE:** `MYSQL_PASSWORD` debe ser la contraseña que pusiste al instalar MySQL.
+Si no tienes contraseña, déjalo vacío: `MYSQL_PASSWORD=`
 
-Crea `backend/src/config/db.js`:
+### 1.8 Crear archivo .gitignore
 
-```javascript
-const mysql = require('mysql2/promise');
-require('dotenv').config();
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'bd_productos',  // ← REEMPLAZAR
-  port: parseInt(process.env.DB_PORT) || 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
-
-module.exports = pool;
 ```
-
-### 1.6 Servidor Express
-
-Crea `backend/src/app.js`:
-
-```javascript
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
-
-const productoRoutes = require('./routes/producto.routes'); // ← REEMPLAZAR
-
-const app = express();
-
-app.use(cors({ origin: 'http://localhost:4200' }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.use('/api', productoRoutes); // ← REEMPLAZAR
-
-app.get('/', (req, res) => {
-  res.json({ mensaje: 'API funcionando correctamente' });
-});
-
-module.exports = app;
+Qué hacer:       Evitar que node_modules y .env se suban al repositorio
 ```
-
-Crea `backend/server.js`:
-
-```javascript
-const app = require('./src/app');
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
-```
-
-### 1.7 Scripts en package.json
-
-Abre `backend/package.json` y reemplaza la sección `"scripts"` con esto:
-
-```json
-"scripts": {
-  "start": "node server.js",
-  "dev": "nodemon server.js"
-}
-```
-
-### 1.8 .gitignore
 
 Crea `backend/.gitignore`:
 
 ```
 node_modules/
+dist/
 .env
 ```
 
-### 1.9 Probar que el servidor inicia
+### 1.9 Crear server.ts (punto de entrada)
 
 ```
-Qué hacer:       Ejecutar el servidor
-Comando exacto:
+Qué hacer:       Crear el archivo que arranca el servidor
 ```
+
+Crea `backend/src/server.ts`:
+
+```typescript
+import { App } from './config/index';
+
+async function main() {
+    const app = new App();
+    await app.listen();
+}
+
+main();
+```
+
+**⚠️ Error común:** Si usas `import app from './config'` sin llaves, no funciona.
+```
+Solución: La clase App se exporta con nombre, así que debe ir entre llaves: import { App }
+```
+
+### 1.10 Crear config/index.ts (clase App)
+
+```
+Qué hacer:       Crear la clase principal que configura Express, middlewares, rutas y BD
+Por qué:         Es la arquitectura que usa el docente
+```
+
+Crea `backend/src/config/index.ts`:
+
+```typescript
+import dotenv from "dotenv";
+dotenv.config();
+
+import express, { Application } from "express";
+import morgan from "morgan";
+import { sequelize, testConnection, getDatabaseInfo } from "../database/db";
+import cors from "cors";
+
+export class App {
+  public app: Application;
+
+  constructor(private port?: number | string) {
+    this.app = express();
+    this.settings();
+    this.middlewares();
+    this.routes();
+    this.dbConnection();
+  }
+
+  private settings(): void {
+    this.app.set('port', this.port || process.env.PORT || 4000);
+  }
+
+  private middlewares(): void {
+    this.app.use(morgan('dev'));
+    this.app.use(cors());
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: false }));
+  }
+
+  private routes(): void {
+    // ⚠️ IMPORTANTE: Aquí se registran TODAS las rutas de la API
+    // Más adelante (Fase 5) agregaremos: this.app.use('/api/clientes', clienteRoutes);
+  }
+
+  private async dbConnection(): Promise<void> {
+    try {
+      const dbInfo = getDatabaseInfo();
+      console.log(`🔌 Intentando conectar a: ${dbInfo.engine.toUpperCase()}`);
+
+      const isConnected = await testConnection();
+
+      if (!isConnected) {
+        throw new Error(`No se pudo conectar a la base de datos ${dbInfo.engine.toUpperCase()}`);
+      }
+
+      // Sincronizar modelos con la BD (crea las tablas automáticamente si no existen)
+      await sequelize.sync({ force: false });
+      console.log(`📦 Base de datos sincronizada exitosamente`);
+
+    } catch (error) {
+      console.error("❌ Error al conectar con la base de datos:", error);
+      process.exit(1);
+    }
+  }
+
+  async listen() {
+    await this.app.listen(this.app.get('port'));
+    console.log(`🚀 Servidor ejecutándose en puerto ${this.app.get('port')}`);
+  }
+}
+```
+
+**⚠️ Error común:** `import cors from "cors"` no funciona porque cors usa module.exports.
+```
+Solución: El flag "esModuleInterop": true en tsconfig.json lo resuelve automáticamente.
+Si ves "cors_1.default is not a function", usa: import cors = require("cors");
+```
+
+### 1.11 Probar que el servidor inicia
+
+```
+Qué hacer:       Ejecutar el servidor en modo desarrollo
+```
+
 ```bash
 npm run dev
 ```
+
 ```
 Resultado esperado:
-  > nodemon server.js
-  [nodemon] starting `node server.js`
-  Servidor corriendo en http://localhost:3000
-
-Verificación:   Abrir http://localhost:3000 en el navegador
-                → Debe mostrar: { "mensaje": "API funcionando correctamente" }
+  > nodemon src/server.ts
+  [nodemon] 3.x.x
+  [nodemon] starting `ts-node src/server.ts`
+  🔌 Intentando conectar a: MYSQL
+  ❌ Error al conectar con la base de datos: ... (ESTO ES NORMAL, aún no creamos la BD)
 ```
 
-**Error común:** "port 3000 already in use"
 ```
-Solución: Cambiar el puerto en .env (ej: PORT=3001)
-         O cerrar el programa que esté usando el puerto 3000
+Verificación:   El servidor INTENTA arrancar pero falla al conectar con MySQL.
+                Si ves el error de conexión a BD, significa que Express funciona bien.
+                Si ves errores de TypeScript, revisa tsconfig.json y las importaciones.
 ```
 
-✅ **FASE 1 COMPLETADA** cuando al abrir http://localhost:3000 veas el mensaje JSON.
+**Error común de compilación:** "Cannot find module 'express'"
+```
+Solución: Ejecuta npm install desde la carpeta backend/
+```
+
+**Error común de TypeScript:** "Unknown file extension .ts"
+```
+Solución: npm install -D ts-node
+```
+
+✅ **FASE 1 COMPLETADA** cuando `npm run dev` ejecute TypeScript sin errores de sintaxis
+(aunque falle la conexión a BD, eso lo resolvemos en la Fase 2).
 
 ---
 
-## FASE 2 — CREACIÓN DE LA BASE DE DATOS
+## FASE 2 — BASE DE DATOS MYSQL Y TABLA ÚNICA
 
-### 2.1 Crear la base de datos
+### 2.1 Crear la base de datos en MySQL
 
-Abre MySQL (puede ser desde la terminal o phpMyAdmin) y ejecuta:
+```
+Qué hacer:       Crear la base de datos vacía usando MySQL
+Por qué:         Sequelize sincronizará los modelos creando las tablas automáticamente
+```
+
+Abre MySQL (terminal, MySQL Workbench o phpMyAdmin) y ejecuta:
 
 ```sql
-CREATE DATABASE IF NOT EXISTS bd_productos;  /* ← REEMPLAZAR nombre */
-USE bd_productos;
+CREATE DATABASE IF NOT EXISTS bd_clientes;  /* ← REEMPLAZAR: nombre de tu BD */
+USE bd_clientes;
 ```
 
 ```
-Qué hacer:       Crear la base de datos vacía
-Por qué:         Ahí se guardará la tabla con los registros
 Resultado:       "Query OK, 1 row affected"
-Verificar:       SHOW DATABASES; → debe aparecer bd_productos en la lista
+Verificar:       SHOW DATABASES; → debe aparecer bd_clientes en la lista
 ```
 
-### 2.2 Crear la tabla principal
+**⚠️ IMPORTANTE:** El nombre de la BD debe coincidir con `MYSQL_NAME` en tu `.env`.
+
+### 2.2 NO crees las tablas manualmente
+
+```
+Qué hacer:       En esta guía NO ejecutamos CREATE TABLE manual
+Por qué:         Sequelize crea las tablas automáticamente al ejecutar sequelize.sync()
+                 basándose en los modelos que definamos en TypeScript (Fase 3).
+```
+
+**Pero debes saber qué tabla se va a crear:**
+
+| Columna | Tipo | Detalle |
+|---------|------|---------|
+| `id` | INT AUTO_INCREMENT | Primary Key |
+| `name` | VARCHAR(255) | NOT NULL |
+| `email` | VARCHAR(255) | NOT NULL, UNIQUE |
+| `phone` | VARCHAR(255) | Puede ser NULL |
+| `address` | TEXT | Puede ser NULL |
+| `status` | ENUM('ACTIVE','INACTIVE') | DEFAULT 'ACTIVE' |
+| `createdAt` | DATETIME | Lo maneja Sequelize automáticamente |
+| `updatedAt` | DATETIME | Lo maneja Sequelize automáticamente |
+
+**🔴 Cuando el docente dé otra entidad, estos campos cambian.**
+
+### 2.3 Verificar MySQL está funcionando
 
 ```sql
-CREATE TABLE productos (          /* ← REEMPLAZAR nombre de la tabla */
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL,         /* ← REEMPLAZAR campos */
-  descripcion TEXT,
-  precio DECIMAL(10,2) NOT NULL,
-  cantidad INT NOT NULL DEFAULT 0,
-  estado ENUM('ACTIVO', 'INACTIVO') DEFAULT 'ACTIVO',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+SELECT VERSION();
+SHOW DATABASES;
+USE bd_clientes;
+SELECT DATABASE();
+```
+
+```
+Resultado esperado:
+  - VERSION() → 8.x.x
+  - SHOW DATABASES → incluye bd_clientes
+  - DATABASE() → bd_clientes
+```
+
+✅ **FASE 2 COMPLETADA** cuando `SHOW DATABASES` muestre `bd_clientes`.
+
+---
+
+## FASE 3 — MODELO CON SEQUELIZE
+
+### 3.1 Crear la conexión a la base de datos (database/db.ts)
+
+```
+Qué hacer:       Crear la configuración de Sequelize para conectar con MySQL
+Por qué:         Todos los modelos usarán esta instancia de Sequelize
+```
+
+Crea `backend/src/database/db.ts`:
+
+```typescript
+import { Sequelize } from "sequelize";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+interface DatabaseConfig {
+  dialect: string;
+  host: string;
+  username: string;
+  password: string;
+  database: string;
+  port: number;
+}
+
+const dbConfigurations: Record<string, DatabaseConfig> = {
+  mysql: {
+    dialect: "mysql",
+    host: process.env.MYSQL_HOST || "localhost",
+    username: process.env.MYSQL_USER || "root",
+    password: process.env.MYSQL_PASSWORD || "",
+    database: process.env.MYSQL_NAME || "bd_clientes",
+    port: parseInt(process.env.MYSQL_PORT || "3306")
+  }
+};
+
+const selectedEngine = process.env.DB_ENGINE || "mysql";
+const selectedConfig = dbConfigurations[selectedEngine];
+
+if (!selectedConfig) {
+  throw new Error(`Motor de base de datos no soportado: ${selectedEngine}`);
+}
+
+console.log(`🔌 Conectando a base de datos: ${selectedEngine.toUpperCase()}`);
+
+export const sequelize = new Sequelize(
+  selectedConfig.database,
+  selectedConfig.username,
+  selectedConfig.password,
+  {
+    host: selectedConfig.host,
+    port: selectedConfig.port,
+    dialect: selectedConfig.dialect as any,
+    logging: false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  }
+);
+
+export const getDatabaseInfo = () => {
+  return {
+    engine: selectedEngine,
+    config: selectedConfig,
+    connectionString: `${selectedConfig.dialect}://${selectedConfig.username}@${selectedConfig.host}:${selectedConfig.port}/${selectedConfig.database}`
+  };
+};
+
+export const testConnection = async (): Promise<boolean> => {
+  try {
+    await sequelize.authenticate();
+    console.log(`✅ Conexión exitosa a ${selectedEngine.toUpperCase()}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error de conexión a ${selectedEngine.toUpperCase()}:`, error);
+    return false;
+  }
+};
+```
+
+**⚠️ Error común:** `ECONNREFUSED :3306`
+```
+Causa: MySQL no está corriendo.
+Solución: Inicia MySQL desde Servicios (services.msc) o XAMPP.
+```
+
+### 3.2 Crear el modelo de la entidad (models/Cliente.ts)
+
+```
+Qué hacer:       Definir el modelo Sequelize que representa la tabla clientes
+Por qué:         Sequelize usará este modelo para crear la tabla y operar con los datos
+```
+
+Crea `backend/src/models/Cliente.ts` (← REEMPLAZAR nombre):
+
+```typescript
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../database/db";
+
+export interface ClienteI {
+  id?: number;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  status: "ACTIVE" | "INACTIVE";
+}
+
+export class Cliente extends Model {
+  public id!: number;
+  public name!: string;
+  public email!: string;
+  public phone!: string;
+  public address!: string;
+  public status!: "ACTIVE" | "INACTIVE";
+}
+
+Cliente.init(
+  {
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: "Name cannot be empty" }
+      }
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: {
+        isEmail: { msg: "Email must be a valid email address" }
+      }
+    },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    address: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    status: {
+      type: DataTypes.ENUM("ACTIVE", "INACTIVE"),
+      defaultValue: "ACTIVE"
+    }
+  },
+  {
+    sequelize,
+    modelName: "Cliente",
+    tableName: "clientes",
+    timestamps: true
+  }
 );
 ```
 
-**⚠️ ¿Qué debes REEMPLAZAR aquí cuando el docente dé la entidad?**
-- `productos` → el nombre de tu tabla (ej: `clientes`, `tareas`, `libros`)
-- `nombre` → primer campo de tu entidad
-- `descripcion` → segundo campo
-- `precio` , `cantidad` → campos adicionales
-- `estado` y los campos `created_at` / `updated_at` los puedes dejar siempre
+**🔴 PARTES QUE DEBES REEMPLAZAR cuando cambie la entidad:**
 
-### 2.3 Verificar que la tabla se creó bien
+| Línea | REEMPLAZA | Por |
+|-------|-----------|-----|
+| `class Cliente` | `Cliente` | Nombre de tu entidad |
+| `interface ClienteI` | `ClienteI` | Mismo nombre + "I" |
+| `tableName: "clientes"` | `"clientes"` | Nombre de la tabla en BD |
+| Campos (name, email, etc.) | Los actuales | Los campos de tu entidad |
+| `export class Cliente` | `Cliente` | Mismo nombre |
 
-```sql
-DESCRIBE productos;  /* ← REEMPLAZAR */
+**⚠️ Error común:** `SequelizeDatabaseError: Unknown column 'createdAt'`
+```
+Causa: La tabla ya existe pero sin las columnas createdAt/updatedAt.
+Solución: Elimina la tabla manual (DROP TABLE clientes) y deja que Sequelize la recree,
+          o cambia sequelize.sync({ force: true }) UNA SOLA VEZ (esto borra datos existentes).
 ```
 
-Debe mostrar todas las columnas con sus tipos de datos.
-
-```sql
-SELECT * FROM productos;  /* ← Debe mostrar "Empty set" (aún sin datos) */
-```
-
-✅ **FASE 2 COMPLETADA** cuando `DESCRIBE productos` muestre todas las columnas creadas correctamente.
+✅ **FASE 3 COMPLETADA** cuando el modelo esté creado con sus campos y tipos correctos.
 
 ---
 
-## FASE 3 — MODELO
+## FASE 4 — CONTROLADOR (CRUD COMPLETO)
 
-### ¿Qué es el modelo?
+### 4.1 ¿Qué es el controlador?
 
-El modelo es el archivo que define **cómo se conecta y consulta** la base de datos desde Node.js. Cada función del modelo ejecuta una consulta SQL. **No es una clase ni un ORM complejo**, solo funciones que usan `mysql2`.
+El controlador recibe las peticiones HTTP (GET, POST, PUT, DELETE) y responde usando el modelo de Sequelize. **Cada método del controlador corresponde a una operación CRUD.**
 
-### ¿Qué partes cambian según la tabla?
+### 4.2 Crear el controlador
 
-Solo cambian:
-- El nombre de la tabla
-- Los nombres de las columnas
-- Los valores que se insertan/actualizan
+Crea `backend/src/controllers/cliente.controller.ts` (← REEMPLAZAR):
 
-### Plantilla del modelo
+```typescript
+import { Request, Response } from 'express';
+import { Cliente, ClienteI } from '../models/Cliente'; // ← REEMPLAZAR
 
-Crea `backend/src/models/producto.model.js` (← REEMPLAZAR nombre):
+export class ClienteController { // ← REEMPLAZAR
 
-```javascript
-const pool = require('../config/db');
-
-const tableName = 'productos'; // ← REEMPLAZAR: nombre de tu tabla
-const allowedFields = ['nombre', 'descripcion', 'precio', 'cantidad', 'estado']; // ← REEMPLAZAR
-
-const ProductoModel = { // ← REEMPLAZAR nombre del objeto
-
-  // OBTENER TODOS
-  getAll: async () => {
-    const [rows] = await pool.query(`SELECT * FROM ${tableName}`);
-    return rows;
-  },
-
-  // OBTENER POR ID
-  getById: async (id) => {
-    const [rows] = await pool.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
-    return rows[0];
-  },
-
-  // CREAR
-  create: async (data) => {
-    const [result] = await pool.query(`INSERT INTO ${tableName} SET ?`, [data]);
-    return { id: result.insertId, ...data };
-  },
-
-  // ACTUALIZAR
-  update: async (id, data) => {
-    await pool.query(`UPDATE ${tableName} SET ? WHERE id = ?`, [data, id]);
-    return { id, ...data };
-  },
-
-  // ELIMINAR
-  delete: async (id) => {
-    const [result] = await pool.query(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
-    return result.affectedRows > 0;
+  // 📋 LISTAR TODOS (GET /api/clientes)
+  public async getAll(req: Request, res: Response): Promise<void> {
+    try {
+      const items: ClienteI[] = await Cliente.findAll(); // ← REEMPLAZAR
+      res.status(200).json({ data: items });
+    } catch (error) {
+      res.status(500).json({ error: 'Error al obtener registros', detalle: error });
+    }
   }
-};
 
-module.exports = ProductoModel; // ← REEMPLAZAR
+  // 🔍 OBTENER POR ID (GET /api/clientes/:id)
+  public async getById(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const item = await Cliente.findByPk(id); // ← REEMPLAZAR
+      if (!item) {
+        res.status(404).json({ error: 'Registro no encontrado' });
+        return;
+      }
+      res.status(200).json({ data: item });
+    } catch (error) {
+      res.status(500).json({ error: 'Error al obtener registro', detalle: error });
+    }
+  }
+
+  // ➕ CREAR (POST /api/clientes)
+  public async create(req: Request, res: Response): Promise<void> {
+    try {
+      const { name, email, phone, address, status } = req.body; // ← REEMPLAZAR campos
+      if (!name || !email) {                                     // ← REEMPLAZAR validación
+        res.status(400).json({ error: 'Los campos name y email son obligatorios' });
+        return;
+      }
+      const newItem = await Cliente.create({ name, email, phone, address, status }); // ← REEMPLAZAR
+      res.status(201).json({ data: newItem, mensaje: 'Creado correctamente' });
+    } catch (error: any) {
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        res.status(400).json({ error: 'El email ya existe' });
+        return;
+      }
+      res.status(500).json({ error: 'Error al crear', detalle: error });
+    }
+  }
+
+  // ✏️ ACTUALIZAR (PUT /api/clientes/:id)
+  public async update(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { name, email, phone, address, status } = req.body; // ← REEMPLAZAR campos
+
+      const item = await Cliente.findByPk(id); // ← REEMPLAZAR
+      if (!item) {
+        res.status(404).json({ error: 'Registro no encontrado' });
+        return;
+      }
+
+      await Cliente.update(
+        { name, email, phone, address, status }, // ← REEMPLAZAR campos
+        { where: { id } }
+      );
+
+      res.status(200).json({ mensaje: 'Actualizado correctamente' });
+    } catch (error) {
+      res.status(500).json({ error: 'Error al actualizar', detalle: error });
+    }
+  }
+
+  // ❌ ELIMINAR (DELETE /api/clientes/:id)
+  public async delete(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const item = await Cliente.findByPk(id); // ← REEMPLAZAR
+      if (!item) {
+        res.status(404).json({ error: 'Registro no encontrado' });
+        return;
+      }
+      await Cliente.destroy({ where: { id } }); // ← REEMPLAZAR
+      res.status(200).json({ mensaje: 'Eliminado correctamente' });
+    } catch (error) {
+      res.status(500).json({ error: 'Error al eliminar', detalle: error });
+    }
+  }
+}
 ```
 
 **🔴 PARTES QUE DEBES REEMPLAZAR cuando cambie la entidad:**
-| Línea | REEMPLAZA | Por |
+
+| Parte | REEMPLAZA | Por |
 |-------|-----------|-----|
-| `const tableName` | `'productos'` | Nombre de tu tabla |
-| `allowedFields` | los campos | Los campos de tu entidad |
-| `ProductoModel` | `ProductoModel` | Nombre de tu modelo |
-| `module.exports` | `ProductoModel` | Mismo nombre |
+| `ClienteController` | `ClienteController` | Nombre de tu controlador |
+| `import { Cliente, ClienteI }` | `Cliente` | Nombre de tu modelo |
+| `name, email, phone, address, status` | Los campos actuales | Campos de tu entidad |
+| Validación `!name \|\| !email` | Validación requerida | Campos obligatorios |
 
-El resto del código **NO se toca**.
+**⚠️ Importante sobre `res.status().json()`:** Después de enviar la respuesta, usa `return` para evitar el error "Cannot set headers after they are sent".
 
----
-
-## FASE 4 — CONTROLADOR
-
-### ¿Qué es el controlador?
-
-El controlador recibe las peticiones HTTP (GET, POST, PUT, DELETE) y responde usando el modelo. **Cada método del controlador corresponde a una operación CRUD.**
-
-### Plantilla del controlador
-
-Crea `backend/src/controllers/producto.controller.js` (← REEMPLAZAR):
-
-```javascript
-const ProductoModel = require('../models/producto.model'); // ← REEMPLAZAR
-
-const ProductoController = { // ← REEMPLAZAR
-
-  // 📋 LISTAR TODOS (GET /api/productos)
-  getAll: async (req, res) => {
-    try {
-      const items = await ProductoModel.getAll(); // ← REEMPLAZAR
-      res.json({ data: items });
-    } catch (error) {
-      res.status(500).json({ error: 'Error al obtener registros', detalle: error.message });
-    }
-  },
-
-  // 🔍 OBTENER POR ID (GET /api/productos/:id)
-  getById: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const item = await ProductoModel.getById(id); // ← REEMPLAZAR
-      if (!item) return res.status(404).json({ error: 'Registro no encontrado' });
-      res.json({ data: item });
-    } catch (error) {
-      res.status(500).json({ error: 'Error al obtener registro', detalle: error.message });
-    }
-  },
-
-  // ➕ CREAR (POST /api/productos)
-  create: async (req, res) => {
-    try {
-      // ← REEMPLAZAR: validar los campos que espera tu entidad
-      const { nombre, descripcion, precio, cantidad, estado } = req.body;
-      if (!nombre || !precio) {
-        return res.status(400).json({ error: 'Los campos nombre y precio son obligatorios' });
-      }
-      const newItem = await ProductoModel.create({ nombre, descripcion, precio, cantidad, estado }); // ← REEMPLAZAR
-      res.status(201).json({ data: newItem, mensaje: 'Creado correctamente' });
-    } catch (error) {
-      res.status(500).json({ error: 'Error al crear', detalle: error.message });
-    }
-  },
-
-  // ✏️ ACTUALIZAR (PUT /api/productos/:id)
-  update: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { nombre, descripcion, precio, cantidad, estado } = req.body; // ← REEMPLAZAR
-      const item = await ProductoModel.getById(id); // ← REEMPLAZAR
-      if (!item) return res.status(404).json({ error: 'Registro no encontrado' });
-      await ProductoModel.update(id, { nombre, descripcion, precio, cantidad, estado }); // ← REEMPLAZAR
-      res.json({ mensaje: 'Actualizado correctamente' });
-    } catch (error) {
-      res.status(500).json({ error: 'Error al actualizar', detalle: error.message });
-    }
-  },
-
-  // ❌ ELIMINAR (DELETE /api/productos/:id)
-  delete: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const eliminado = await ProductoModel.delete(id); // ← REEMPLAZAR
-      if (!eliminado) return res.status(404).json({ error: 'Registro no encontrado' });
-      res.json({ mensaje: 'Eliminado correctamente' });
-    } catch (error) {
-      res.status(500).json({ error: 'Error al eliminar', detalle: error.message });
-    }
-  }
-};
-
-module.exports = ProductoController; // ← REEMPLAZAR
-```
-
-**🔴 PARTES QUE DEBES REEMPLAZAR:**
-- `ProductoModel` → Nombre de tu modelo (importado y en cada uso)
-- `ProductoController` → Nombre del controlador
-- `nombre, descripcion, precio, cantidad, estado` → Los campos de TU entidad
+✅ **FASE 4 COMPLETADA** cuando el controlador tenga los 4 métodos (getAll, getById, create, update, delete).
 
 ---
 
 ## FASE 5 — RUTAS
 
-### ¿Qué son las rutas?
+### 5.1 ¿Qué son las rutas?
 
 Las rutas conectan las URL de la API con los métodos del controlador.
-Cuando el frontend hace una petición a `/api/productos`, la ruta sabe que debe ejecutar `ProductoController.getAll`.
+Cuando el frontend hace una petición a `/api/clientes`, la ruta sabe que debe ejecutar `clienteController.getAll`.
 
-### Plantilla de rutas
+### 5.2 Crear las rutas
 
-Crea `backend/src/routes/producto.routes.js` (← REEMPLAZAR):
+Crea `backend/src/routes/cliente.routes.ts` (← REEMPLAZAR):
 
-```javascript
-const router = require('express').Router();
-const controller = require('../controllers/producto.controller'); // ← REEMPLAZAR
+```typescript
+import { Router } from 'express';
+import { ClienteController } from '../controllers/cliente.controller'; // ← REEMPLAZAR
 
-// IMPORTANTE: El nombre de la ruta "/productos" debe coincidir con Angular
-router.get('/productos', controller.getAll);       // ← REEMPLAZAR
-router.get('/productos/:id', controller.getById);  // ← REEMPLAZAR
-router.post('/productos', controller.create);      // ← REEMPLAZAR
-router.put('/productos/:id', controller.update);   // ← REEMPLAZAR
-router.delete('/productos/:id', controller.delete);// ← REEMPLAZAR
+const router = Router();
+const controller = new ClienteController(); // ← REEMPLAZAR
 
-module.exports = router;
+// IMPORTANTE: "/" aquí corresponde a "/api/clientes" después de registrar en config/index.ts
+router.get('/', controller.getAll);
+router.get('/:id', controller.getById);
+router.post('/', controller.create);
+router.put('/:id', controller.update);
+router.delete('/:id', controller.delete);
+
+export default router;
 ```
 
 **🔴 PARTES QUE DEBES REEMPLAZAR:**
-- `producto.controller` → nombre del archivo controlador
-- `/productos` → nombre de tu entidad en plural (ej: `/clientes`, `/tareas`, `/libros`)
 
-### Registrar las rutas en app.js
+| Parte | REEMPLAZA | Por |
+|-------|-----------|-----|
+| `cliente.controller` | `cliente.controller` | Nombre de tu archivo controlador |
+| `ClienteController` | `ClienteController` | Nombre de la clase controlador |
+| `controller` | `controller` | Instancia del controlador |
 
-Abre `backend/src/app.js` y verifica que la línea `app.use('/api', productoRoutes)` use el mismo nombre de ruta que definiste arriba.
-
-### Verificar que las rutas funcionan
+### 5.3 Registrar las rutas en config/index.ts
 
 ```
-Qué hacer:       Iniciar el servidor si no está corriendo
-Comando exacto:
+Qué hacer:       Conectar las rutas con la aplicación Express
+Por qué:         Sin este paso, las rutas no responderán a las peticiones HTTP
 ```
+
+Abre `backend/src/config/index.ts` y modifica el método `private routes()`:
+
+```typescript
+private routes(): void {
+  this.app.use('/api/clientes', clienteRoutes); // ← REEMPLAZAR
+}
+```
+
+Y agrega la importación al inicio del archivo:
+
+```typescript
+import clienteRoutes from '../routes/cliente.routes'; // ← REEMPLAZAR
+```
+
+**El archivo `backend/src/config/index.ts` completo queda así:**
+
+```typescript
+import dotenv from "dotenv";
+dotenv.config();
+
+import express, { Application } from "express";
+import morgan from "morgan";
+import { sequelize, testConnection, getDatabaseInfo } from "../database/db";
+import cors from "cors";
+
+import clienteRoutes from '../routes/cliente.routes'; // ← REEMPLAZAR
+
+export class App {
+  public app: Application;
+
+  constructor(private port?: number | string) {
+    this.app = express();
+    this.settings();
+    this.middlewares();
+    this.routes();
+    this.dbConnection();
+  }
+
+  private settings(): void {
+    this.app.set('port', this.port || process.env.PORT || 4000);
+  }
+
+  private middlewares(): void {
+    this.app.use(morgan('dev'));
+    this.app.use(cors());
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: false }));
+  }
+
+  private routes(): void {
+    this.app.use('/api/clientes', clienteRoutes); // ← REEMPLAZAR la ruta
+  }
+
+  private async dbConnection(): Promise<void> {
+    try {
+      const dbInfo = getDatabaseInfo();
+      console.log(`🔌 Intentando conectar a: ${dbInfo.engine.toUpperCase()}`);
+
+      const isConnected = await testConnection();
+
+      if (!isConnected) {
+        throw new Error(`No se pudo conectar a la base de datos ${dbInfo.engine.toUpperCase()}`);
+      }
+
+      await sequelize.sync({ force: false });
+      console.log(`📦 Base de datos sincronizada exitosamente`);
+
+    } catch (error) {
+      console.error("❌ Error al conectar con la base de datos:", error);
+      process.exit(1);
+    }
+  }
+
+  async listen() {
+    await this.app.listen(this.app.get('port'));
+    console.log(`🚀 Servidor ejecutándose en puerto ${this.app.get('port')}`);
+  }
+}
+```
+
+### 5.4 Verificar que el servidor arranca sin errores
+
 ```bash
 cd backend
 npm run dev
 ```
+
 ```
-Verificación:   Abrir http://localhost:3000/api/productos  (← REEMPLAZAR)
-                → Debe mostrar: { "data": [] }
-                (array vacío porque aún no hay datos en la BD)
+Resultado esperado (TODO CONECTADO):
+  🔌 Conectando a base de datos: MYSQL
+  ✅ Conexión exitosa a MYSQL
+  📦 Base de datos sincronizada exitosamente
+  🚀 Servidor ejecutándose en puerto 4000
 ```
 
-✅ **FASE 5 COMPLETADA** cuando `GET /api/productos` devuelva `{ "data": [] }` sin errores.
+Abre `http://localhost:4000/api/clientes` en el navegador.
+```
+Respuesta esperada: { "data": [] }
+```
+
+✅ **FASE 5 COMPLETADA** cuando `GET /api/clientes` devuelva `{ "data": [] }` sin errores.
 
 ---
 
-## FASE 6 — PRUEBAS CON POSTMAN
+## FASE 6 — POBLACIÓN CON FAKER (DATOS DE PRUEBA)
 
-Abre Postman (o Thunder Client en VS Code) y prueba cada endpoint:
+### 6.1 Instalar @faker-js/faker
 
-### 6.1 Crear un registro (POST)
-
-| Configuración | Valor |
-|--------------|-------|
-| **Método** | `POST` |
-| **URL** | `http://localhost:3000/api/productos` ← REEMPLAZAR |
-| **Headers** | `Content-Type: application/json` |
-| **Body (raw JSON)** | |
-```json
-{
-  "nombre": "Laptop HP",
-  "descripcion": "Laptop de 15 pulgadas",
-  "precio": 2500000,
-  "cantidad": 10,
-  "estado": "ACTIVO"
-}
 ```
+Qué hacer:       Instalar la librería para generar datos falsos realistas
+Por qué:         Poblar la tabla con 20+ registros para probar visualmente el frontend
 ```
-Respuesta esperada (201):
-  {
-    "data": {
-      "id": 1,
-      "nombre": "Laptop HP",
-      "descripcion": "Laptop de 15 pulgadas",
-      "precio": 2500000,
-      "cantidad": 10,
-      "estado": "ACTIVO"
-    },
-    "mensaje": "Creado correctamente"
-  }
-```
-
-**Error común:** "Cannot set headers after they are sent"
-```
-Solución: En el controlador, asegúrate de usar return después de res.status().json()
-```
-
-### 6.2 Listar todos (GET)
-
-| Configuración | Valor |
-|--------------|-------|
-| **Método** | `GET` |
-| **URL** | `http://localhost:3000/api/productos` ← REEMPLAZAR |
-```
-Respuesta esperada (200):
-  {
-    "data": [
-      { "id": 1, "nombre": "Laptop HP", ... }
-    ]
-  }
-```
-
-### 6.3 Obtener por ID (GET)
-
-| Configuración | Valor |
-|--------------|-------|
-| **Método** | `GET` |
-| **URL** | `http://localhost:3000/api/productos/1` ← REEMPLAZAR |
-```
-Respuesta esperada (200):
-  { "data": { "id": 1, "nombre": "Laptop HP", ... } }
-```
-
-### 6.4 Actualizar (PUT)
-
-| Configuración | Valor |
-|--------------|-------|
-| **Método** | `PUT` |
-| **URL** | `http://localhost:3000/api/productos/1` ← REEMPLAZAR |
-| **Body (raw JSON)** | |
-```json
-{
-  "nombre": "Laptop HP Actualizada",
-  "precio": 2600000,
-  "cantidad": 8,
-  "estado": "ACTIVO"
-}
-```
-```
-Respuesta esperada (200):
-  { "mensaje": "Actualizado correctamente" }
-```
-
-### 6.5 Eliminar (DELETE)
-
-| Configuración | Valor |
-|--------------|-------|
-| **Método** | `DELETE` |
-| **URL** | `http://localhost:3000/api/productos/1` ← REEMPLAZAR |
-```
-Respuesta esperada (200):
-  { "mensaje": "Eliminado correctamente" }
-```
-
-### 6.6 Verificar eliminación
 
 ```bash
-GET http://localhost:3000/api/productos  # El registro ya no debe aparecer
+npm install @faker-js/faker
 ```
 
-✅ **FASE 6 COMPLETADA** cuando los 5 endpoints (POST, GET, GET/:id, PUT, DELETE) respondan correctamente.
+### 6.2 Crear el script de seed
+
+Crea `backend/src/faker/seed.ts` (← REEMPLAZAR campos y tabla):
+
+```typescript
+import { sequelize } from "../database/db";
+import { faker } from "@faker-js/faker";
+import { Cliente } from "../models/Cliente"; // ← REEMPLAZAR
+import dotenv from "dotenv";
+
+dotenv.config();
+
+async function seed() {
+  try {
+    console.log("🌱 Insertando datos de prueba en clientes..."); // ← REEMPLAZAR
+
+    // Sincronizar modelos (crea la tabla si no existe)
+    await sequelize.sync({ force: false });
+
+    const records = [];
+    for (let i = 0; i < 20; i++) {
+      records.push({
+        name: faker.person.fullName(),              // ← REEMPLAZAR según campos
+        email: faker.internet.email(),
+        phone: faker.phone.number(),
+        address: faker.location.streetAddress(),
+        status: faker.helpers.arrayElement(['ACTIVE', 'INACTIVE' as const])
+      });
+    }
+
+    await Cliente.bulkCreate(records); // ← REEMPLAZAR
+    console.log(`✅ ${records.length} registros insertados correctamente`);
+    process.exit(0);
+  } catch (error) {
+    console.error("❌ Error al insertar datos:", error);
+    process.exit(1);
+  }
+}
+
+seed();
+```
+
+**🔴 Cuando cambie la entidad, cambia:**
+- `Cliente` → tu modelo
+- Los campos en `records.push(...)` → los campos de tu entidad
+- Los valores de faker → usa `faker.commerce.productName()`, `faker.number.int()`, etc. según el tipo de campo
+
+### 6.3 Agregar script seed en package.json
+
+Abre `backend/package.json` y agrega en `"scripts"`:
+
+```json
+"seed": "ts-node src/faker/seed.ts"
+```
+
+Los scripts completos deben verse así:
+
+```json
+"scripts": {
+  "build": "tsc",
+  "start": "node dist/server.js",
+  "dev": "nodemon src/server.ts",
+  "seed": "ts-node src/faker/seed.ts"
+}
+```
+
+### 6.4 Ejecutar el seed
+
+```
+Qué hacer:       Poblar la base de datos con 20 registros falsos
+```
+
+```bash
+cd backend
+npm run seed
+```
+
+```
+Resultado esperado:
+  🔌 Conectando a base de datos: MYSQL
+  ✅ Conexión exitosa a MYSQL
+  🌱 Insertando datos de prueba en clientes...
+  ✅ 20 registros insertados correctamente
+```
+
+**Verificar en BD:**
+
+```sql
+USE bd_clientes;
+SELECT COUNT(*) FROM clientes;  -- Debe mostrar 20
+SELECT * FROM clientes LIMIT 5;  -- Debe mostrar 5 registros con datos realistas
+```
+
+**Error común:** "ERROR: column "createdAt" does not exist"
+```
+Causa: La tabla fue creada sin timestamps.
+Solución: DROP TABLE clientes; y luego ejecutar npm run seed (Sequelize recrea la tabla).
+```
+
+✅ **FASE 6 COMPLETADA** cuando `SELECT COUNT(*) FROM clientes` muestre 20 registros.
 
 ---
 
-## FASE 7 — CREACIÓN DEL FRONTEND ANGULAR
+## FASE 7 — PRUEBAS CON POSTMAN / .HTTP
 
-### 7.1 Crear proyecto Angular
+### 7.1 Probar con archivos .http (Thunder Client)
+
+Crea `backend/src/http/clientes.http` (← REEMPLAZAR):
+
+```http
+### Obtener todos los clientes
+GET http://localhost:4000/api/clientes
+
+### Obtener cliente por ID
+GET http://localhost:4000/api/clientes/1
+
+### Crear un cliente
+POST http://localhost:4000/api/clientes
+Content-Type: application/json
+
+{
+  "name": "Juan Pérez",
+  "email": "juan@email.com",
+  "phone": "3001234567",
+  "address": "Calle 123",
+  "status": "ACTIVE"
+}
+
+### Actualizar un cliente
+PUT http://localhost:4000/api/clientes/1
+Content-Type: application/json
+
+{
+  "name": "Juan Pérez Actualizado",
+  "email": "juan.nuevo@email.com",
+  "phone": "3007654321",
+  "address": "Carrera 456",
+  "status": "ACTIVE"
+}
+
+### Eliminar un cliente
+DELETE http://localhost:4000/api/clientes/1
+```
+
+### 7.2 Probar con Postman
+
+Para cada endpoint, usa esta tabla:
+
+| Operación | Método | URL | Body (JSON) |
+|-----------|--------|-----|-------------|
+| Listar todos | `GET` | `http://localhost:4000/api/clientes` | No |
+| Obtener por ID | `GET` | `http://localhost:4000/api/clientes/1` | No |
+| Crear | `POST` | `http://localhost:4000/api/clientes` | `{ "name": "...", "email": "...", "phone": "...", "address": "...", "status": "ACTIVE" }` |
+| Actualizar | `PUT` | `http://localhost:4000/api/clientes/1` | `{ "name": "...", "email": "...", ... }` |
+| Eliminar | `DELETE` | `http://localhost:4000/api/clientes/1` | No |
+
+### 7.3 Respuestas esperadas
+
+**GET /api/clientes → 200**
+```json
+{
+  "data": [
+    { "id": 1, "name": "Juan Pérez", "email": "juan@email.com", "phone": "3001234567", "address": "Calle 123", "status": "ACTIVE", "createdAt": "...", "updatedAt": "..." }
+  ]
+}
+```
+
+**POST /api/clientes → 201**
+```json
+{
+  "data": { "id": 2, "name": "María Gómez", "email": "maria@email.com", "phone": "3009876543", "address": "Av. Siempre Viva", "status": "ACTIVE", "updatedAt": "...", "createdAt": "..." },
+  "mensaje": "Creado correctamente"
+}
+```
+
+**PUT /api/clientes/1 → 200**
+```json
+{ "mensaje": "Actualizado correctamente" }
+```
+
+**DELETE /api/clientes/1 → 200**
+```json
+{ "mensaje": "Eliminado correctamente" }
+```
+
+### 7.4 Errores comunes en las pruebas
+
+| Error | Causa | Solución |
+|-------|-------|----------|
+| `ECONNREFUSED :4000` | Backend no está corriendo | Ejecutar `npm run dev` |
+| `Cannot POST` | Ruta mal escrita en la URL | Verificar que sea `/api/clientes` |
+| `Cannot PUT` | El id no existe en la BD | Usar un id que exista |
+| `SequelizeUniqueConstraintError` | Email duplicado | Usar un email diferente |
+| `{"error": "Registro no encontrado"}` | El id no existe | Verificar primero con GET todos |
+
+✅ **FASE 7 COMPLETADA** cuando los 5 endpoints respondan correctamente.
+
+---
+
+## FASE 8 — CREACIÓN DEL FRONTEND ANGULAR
+
+### 8.1 Crear proyecto Angular
+
+```
+Qué hacer:       Crear el proyecto Angular fuera de la carpeta backend/
+```
 
 ```bash
 # Estás en: app-parcial/
-cd ..  # si estás en backend/
+cd ..
 ng new frontend --standalone --routing --style=css
 ```
 
@@ -684,7 +1213,7 @@ Qué hace este comando: Crea un proyecto Angular con:
   - --style=css: hojas de estilo en CSS plano
 ```
 
-### 7.2 Verificar que Angular funciona
+### 8.2 Verificar que Angular funciona
 
 ```bash
 ng serve
@@ -692,18 +1221,37 @@ ng serve
 
 Abrir `http://localhost:4200` → Debe aparecer la página de bienvenida de Angular.
 
-**Error común:** "端口 4200 已被使用" (puerto ocupado)
+**Error común:** Puerto 4200 ya está en uso
 ```
 Solución: ng serve --port 4300
 ```
 
-### 7.3 Instalar PrimeNG (librería de componentes UI)
+### 8.3 Instalar PrimeNG (librería de componentes UI)
+
+```
+Qué hacer:       Instalar PrimeNG, su tema y los iconos
+```
 
 ```bash
 npm install primeng @primeuix/themes primeicons
 ```
 
-### 7.4 Configurar PrimeNG
+### 8.4 Instalar TailwindCSS
+
+```
+Qué hacer:       Instalar TailwindCSS como PostCSS plugin
+Por qué:         Se usa junto con PrimeNG para estilos rápidos
+```
+
+```bash
+npm install tailwindcss @tailwindcss/postcss
+```
+
+### 8.5 Configurar PrimeNG en app.config.ts
+
+```
+Qué hacer:       Configurar los providers de Angular para usar PrimeNG
+```
 
 Abre `frontend/src/app/app.config.ts` y reemplaza TODO el contenido:
 
@@ -711,7 +1259,7 @@ Abre `frontend/src/app/app.config.ts` y reemplaza TODO el contenido:
 import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { providePrimeNG } from 'primeng/config';
 import Aura from '@primeuix/themes/aura';
 
@@ -722,13 +1270,21 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideAnimationsAsync(),
-    provideHttpClient(),
+    provideHttpClient(withInterceptorsFromDi()),
     providePrimeNG({
       theme: { preset: Aura }
     })
   ]
 };
 ```
+
+**⚠️ Error común:** `NullInjectorError: No provider for HttpClient`
+```
+Causa: Falta provideHttpClient() en app.config.ts
+Solución: Agregar provideHttpClient(withInterceptorsFromDi()) como en el código de arriba.
+```
+
+### 8.6 Configurar TailwindCSS y PrimeIcons en styles.css
 
 Abre `frontend/src/styles.css` y reemplaza TODO con:
 
@@ -742,55 +1298,81 @@ body {
 }
 ```
 
-### 7.5 Crear el modelo en Angular
+**⚠️ Error común:** Los iconos de PrimeNG no se ven (aparecen cuadrados)
+```
+Causa: No se importó primeicons.css
+Solución: Verificar que styles.css tenga @import "primeicons/primeicons.css";
+```
+
+### 8.7 Crear el modelo en Angular
+
+```
+Qué hacer:       Crear la interfaz TypeScript que representa la entidad en el frontend
+```
 
 Crea la carpeta y el archivo del modelo:
 
-```
-Qué hacer:       Crear frontend/src/app/models/producto.ts (← REEMPLAZAR)
+```bash
+mkdir src\app\models
 ```
 
+Crea `frontend/src/app/models/cliente.ts` (← REEMPLAZAR):
+
 ```typescript
-export interface Producto {  // ← REEMPLAZAR
+export interface Cliente {  // ← REEMPLAZAR
   id?: number;
-  nombre: string;           // ← REEMPLAZAR campos
-  descripcion: string;
-  precio: number;
-  cantidad: number;
-  estado: 'ACTIVO' | 'INACTIVO';
+  name: string;            // ← REEMPLAZAR campos
+  email: string;
+  phone?: string;
+  address?: string;
+  status: 'ACTIVE' | 'INACTIVE';
 }
 ```
 
-### 7.6 Crear el servicio HTTP
+**🔴 Cuando cambie la entidad, cambia:**
+- `Cliente` → nombre de tu entidad
+- Los campos → los campos de tu entidad
 
-Crea `frontend/src/app/services/producto.service.ts` (← REEMPLAZAR):
+### 8.8 Crear el servicio HTTP
+
+```
+Qué hacer:       Crear el servicio que se comunicará con el backend
+```
+
+Crea la carpeta:
+
+```bash
+mkdir src\app\services
+```
+
+Crea `frontend/src/app/services/cliente.service.ts` (← REEMPLAZAR):
 
 ```typescript
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Producto } from '../models/producto'; // ← REEMPLAZAR
+import { Cliente } from '../models/cliente'; // ← REEMPLAZAR
 
 @Injectable({ providedIn: 'root' })
-export class ProductoService {  // ← REEMPLAZAR
+export class ClienteService {  // ← REEMPLAZAR
 
-  private apiUrl = 'http://localhost:3000/api/productos'; // ← REEMPLAZAR
+  private apiUrl = 'http://localhost:4000/api/clientes'; // ← REEMPLAZAR
 
   constructor(private http: HttpClient) { }
 
-  getAll(): Observable<{ data: Producto[] }> {  // ← REEMPLAZAR
-    return this.http.get<{ data: Producto[] }>(this.apiUrl);
+  getAll(): Observable<{ data: Cliente[] }> {  // ← REEMPLAZAR
+    return this.http.get<{ data: Cliente[] }>(this.apiUrl);
   }
 
-  getById(id: number): Observable<{ data: Producto }> {
-    return this.http.get<{ data: Producto }>(`${this.apiUrl}/${id}`);
+  getById(id: number): Observable<{ data: Cliente }> {
+    return this.http.get<{ data: Cliente }>(`${this.apiUrl}/${id}`);
   }
 
-  create(data: Producto): Observable<any> {
+  create(data: Cliente): Observable<any> {
     return this.http.post(this.apiUrl, data);
   }
 
-  update(id: number, data: Producto): Observable<any> {
+  update(id: number, data: Cliente): Observable<any> {
     return this.http.put(`${this.apiUrl}/${id}`, data);
   }
 
@@ -801,12 +1383,11 @@ export class ProductoService {  // ← REEMPLAZAR
 ```
 
 **🔴 PARTES QUE DEBES REEMPLAZAR:**
-- `Producto` → nombre de tu entidad (en interface, imports y tipados)
-- `producto.service` → nombre del archivo
-- `ProductoService` → nombre de la clase
-- `http://localhost:3000/api/productos` → la URL base de tu API
+- `Cliente` → nombre de tu entidad (en interface, imports y tipados)
+- `ClienteService` → nombre de la clase del servicio
+- `http://localhost:4000/api/clientes` → la URL base de tu API
 
-### 7.7 Configurar rutas de Angular
+### 8.9 Configurar rutas de Angular
 
 Abre `frontend/src/app/app.routes.ts`:
 
@@ -814,67 +1395,62 @@ Abre `frontend/src/app/app.routes.ts`:
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/productos', pathMatch: 'full' }, // ← REEMPLAZAR
+  { path: '', redirectTo: '/clientes', pathMatch: 'full' }, // ← REEMPLAZAR
   {
-    path: 'productos',  // ← REEMPLAZAR
-    loadChildren: () => import('./components/producto/producto.routes').then(m => m.routes)  // ← REEMPLAZAR
+    path: 'clientes',  // ← REEMPLAZAR
+    loadComponent: () => import('./components/cliente/cliente-list/cliente-list.component').then(m => m.ClienteListComponent)  // ← REEMPLAZAR
   },
-  { path: '**', redirectTo: '/productos' }
+  {
+    path: 'clientes/new',  // ← REEMPLAZAR
+    loadComponent: () => import('./components/cliente/cliente-form/cliente-form.component').then(m => m.ClienteFormComponent)  // ← REEMPLAZAR
+  },
+  {
+    path: 'clientes/edit/:id',  // ← REEMPLAZAR
+    loadComponent: () => import('./components/cliente/cliente-form/cliente-form.component').then(m => m.ClienteFormComponent)  // ← REEMPLAZAR
+  },
+  { path: '**', redirectTo: '/clientes' }
 ];
 ```
 
-✅ **FASE 7 COMPLETADA** cuando `ng serve` compile sin errores.
+**🔴 Cuando cambie la entidad, cambia:**
+- `/clientes` → `/nombre-de-tu-entidad`
+- `cliente-list`, `cliente-form` → nombre de tus componentes
+- `ClienteListComponent`, `ClienteFormComponent` → nombre de tus clases
+
+✅ **FASE 8 COMPLETADA** cuando `ng serve` compile sin errores.
 
 ---
 
-## FASE 8 — CRUD COMPLETO EN ANGULAR
+## FASE 9 — CRUD COMPLETO EN ANGULAR
 
-### 8.1 Generar los componentes
+### 9.1 Generar los componentes
+
+```
+Qué hacer:       Crear los componentes para listar y para crear/editar
+```
 
 ```bash
-ng g m components/producto --routing  # ← REEMPLAZAR
+ng g c components/cliente/cliente-list  # ← REEMPLAZAR
+ng g c components/cliente/cliente-form  # ← REEMPLAZAR
 ```
 
-Esto crea la carpeta `components/producto/`.
-
-Luego generar los 4 componentes del CRUD:
-
-```bash
-ng g c components/producto/producto-list   # ← REEMPLAZAR
-ng g c components/producto/producto-form   # ← REEMPLAZAR
-```
-
-### 8.2 Estructura final de componentes
+### 9.2 Estructura final de componentes
 
 ```
-frontend/src/app/components/producto/      # ← REEMPLAZAR
-├── producto.routes.ts      # Rutas hijas
-├── producto-list/
-│   ├── producto-list.ts
-│   └── producto-list.html
-└── producto-form/
-    ├── producto-form.ts
-    └── producto-form.html
+frontend/src/app/components/cliente/     # ← REEMPLAZAR
+├── cliente-list/
+│   ├── cliente-list.component.ts
+│   ├── cliente-list.component.html
+│   ├── cliente-list.component.css
+└── cliente-form/
+    ├── cliente-form.component.ts
+    ├── cliente-form.component.html
+    ├── cliente-form.component.css
 ```
 
-<details>
-<summary>📄 producto.routes.ts (click para ver)</summary>
+### 9.3 Componente de listado (cliente-list)
 
-```typescript
-import { Routes } from '@angular/router';
-import { ProductoList } from './producto-list/producto-list';
-import { ProductoForm } from './producto-form/producto-form';
-
-export const routes: Routes = [
-  { path: '', component: ProductoList },
-  { path: 'new', component: ProductoForm },
-  { path: 'edit/:id', component: ProductoForm }
-];
-```
-</details>
-
-<details>
-<summary>📄 producto-list.ts (click para ver)</summary>
+#### cliente-list.component.ts
 
 ```typescript
 import { Component, OnInit } from '@angular/core';
@@ -885,22 +1461,22 @@ import { ButtonModule } from 'primeng/button';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { ProductoService } from '../../services/producto.service';
-import { Producto } from '../../models/producto';
+import { ClienteService } from '../../services/cliente.service';  // ← REEMPLAZAR
+import { Cliente } from '../../models/cliente';                    // ← REEMPLAZAR
 
 @Component({
-  selector: 'app-producto-list',
+  selector: 'app-cliente-list',         // ← REEMPLAZAR
   standalone: true,
   imports: [CommonModule, RouterModule, TableModule, ButtonModule, ConfirmDialogModule, ToastModule],
   providers: [ConfirmationService, MessageService],
-  templateUrl: './producto-list.html'
+  templateUrl: './cliente-list.component.html'
 })
-export class ProductoList implements OnInit {
-  items: Producto[] = [];
+export class ClienteListComponent implements OnInit {   // ← REEMPLAZAR
+  items: Cliente[] = [];                                 // ← REEMPLAZAR
   loading = false;
 
   constructor(
-    private service: ProductoService,
+    private service: ClienteService,                    // ← REEMPLAZAR
     private confirmationService: ConfirmationService,
     private messageService: MessageService
   ) {}
@@ -909,15 +1485,15 @@ export class ProductoList implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.service.getAll().subscribe({
+    this.service.getAll().subscribe({                    // ← REEMPLAZAR
       next: (res) => { this.items = res.data; this.loading = false; },
       error: () => { this.loading = false; this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los datos' }); }
     });
   }
 
-  confirmDelete(item: Producto): void {
+  confirmDelete(item: Cliente): void {                   // ← REEMPLAZAR
     this.confirmationService.confirm({
-      message: `¿Eliminar "${item.nombre}"?`,
+      message: `¿Eliminar a "${item.name}"?`,             // ← REEMPLAZAR: usa el campo que identifica al registro (name, nombre, título, etc.)
       header: 'Confirmar',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Eliminar',
@@ -935,16 +1511,14 @@ export class ProductoList implements OnInit {
   }
 }
 ```
-</details>
 
-<details>
-<summary>📄 producto-list.html (click para ver)</summary>
+#### cliente-list.component.html
 
 ```html
 <div class="card p-6">
   <div class="flex justify-between items-center mb-4">
-    <h2 class="text-2xl font-bold">Listado de Productos</h2>
-    <p-button label="Nuevo" icon="pi pi-plus" routerLink="/productos/new"></p-button>
+    <h2 class="text-2xl font-bold">Listado de Clientes</h2>  <!-- ← REEMPLAZAR -->
+    <p-button label="Nuevo" icon="pi pi-plus" routerLink="/clientes/new"></p-button>
   </div>
 
   <p-table [value]="items" [loading]="loading" [paginator]="true" [rows]="10"
@@ -952,9 +1526,9 @@ export class ProductoList implements OnInit {
     <ng-template pTemplate="header">
       <tr>
         <th pSortableColumn="id">ID <p-sortIcon field="id"></p-sortIcon></th>
-        <th pSortableColumn="nombre">Nombre <p-sortIcon field="nombre"></p-sortIcon></th>
-        <th pSortableColumn="precio">Precio <p-sortIcon field="precio"></p-sortIcon></th>
-        <th pSortableColumn="cantidad">Cantidad <p-sortIcon field="cantidad"></p-sortIcon></th>
+        <th pSortableColumn="name">Nombre <p-sortIcon field="name"></p-sortIcon></th>
+        <th pSortableColumn="email">Email <p-sortIcon field="email"></p-sortIcon></th>
+        <th pSortableColumn="phone">Teléfono <p-sortIcon field="phone"></p-sortIcon></th>
         <th>Estado</th>
         <th class="text-center">Acciones</th>
       </tr>
@@ -962,12 +1536,12 @@ export class ProductoList implements OnInit {
     <ng-template pTemplate="body" let-item>
       <tr>
         <td>{{ item.id }}</td>
-        <td>{{ item.nombre }}</td>
-        <td>{{ item.precio | currency }}</td>
-        <td>{{ item.cantidad }}</td>
-        <td>{{ item.estado }}</td>
+        <td>{{ item.name }}</td>
+        <td>{{ item.email }}</td>
+        <td>{{ item.phone }}</td>
+        <td>{{ item.status }}</td>
         <td class="text-center">
-          <p-button icon="pi pi-pencil" [routerLink]="['/productos/edit', item.id]" styleClass="p-button-rounded p-button-text p-button-warning" pTooltip="Editar"></p-button>
+          <p-button icon="pi pi-pencil" [routerLink]="['/clientes/edit', item.id]" styleClass="p-button-rounded p-button-text p-button-warning" pTooltip="Editar"></p-button>
           <p-button icon="pi pi-trash" (onClick)="confirmDelete(item)" styleClass="p-button-rounded p-button-text p-button-danger" pTooltip="Eliminar"></p-button>
         </td>
       </tr>
@@ -980,10 +1554,16 @@ export class ProductoList implements OnInit {
 <p-confirmDialog></p-confirmDialog>
 <p-toast></p-toast>
 ```
-</details>
 
-<details>
-<summary>📄 producto-form.ts (click para ver)</summary>
+**🔴 Cuando cambie la entidad, cambia en el HTML:**
+- "Listado de Clientes" → nombre de tu entidad
+- Las columnas de la tabla → los campos de tu entidad
+- `item.name`, `item.email`, etc. → los campos de tu entidad
+- `routerLink="/clientes/..."` → `/tu-entidad/...`
+
+### 9.4 Componente de formulario (cliente-form)
+
+#### cliente-form.component.ts
 
 ```typescript
 import { Component, OnInit } from '@angular/core';
@@ -992,26 +1572,26 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextareaModule } from 'primeng/inputtextarea';
 import { SelectModule } from 'primeng/select';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
-import { ProductoService } from '../../services/producto.service';
+import { ClienteService } from '../../services/cliente.service';    // ← REEMPLAZAR
 
 @Component({
-  selector: 'app-producto-form',
+  selector: 'app-cliente-form',          // ← REEMPLAZAR
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, ButtonModule, InputTextModule, InputNumberModule, SelectModule, ToastModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, ButtonModule, InputTextModule, InputTextareaModule, SelectModule, ToastModule],
   providers: [MessageService],
-  templateUrl: './producto-form.html'
+  templateUrl: './cliente-form.component.html'
 })
-export class ProductoForm implements OnInit {
-  form = this.fb.group({
-    nombre: ['', [Validators.required, Validators.minLength(2)]],
-    descripcion: [''],
-    precio: [0, [Validators.required, Validators.min(1)]],
-    cantidad: [0, [Validators.required, Validators.min(0)]],
-    estado: ['ACTIVO', Validators.required]
+export class ClienteFormComponent implements OnInit {   // ← REEMPLAZAR
+  form = this.fb.group({                                 // ← REEMPLAZAR campos
+    name: ['', [Validators.required, Validators.minLength(2)]],
+    email: ['', [Validators.required, Validators.email]],
+    phone: [''],
+    address: [''],
+    status: ['ACTIVE', Validators.required]
   });
 
   isEdit = false;
@@ -1020,7 +1600,7 @@ export class ProductoForm implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private service: ProductoService,
+    private service: ClienteService,                      // ← REEMPLAZAR
     private route: ActivatedRoute,
     private router: Router,
     private messageService: MessageService
@@ -1052,7 +1632,7 @@ export class ProductoForm implements OnInit {
     obs.subscribe({
       next: () => {
         this.messageService.add({ severity: 'success', summary: 'Éxito', detail: `Registro ${this.isEdit ? 'actualizado' : 'creado'} correctamente` });
-        setTimeout(() => this.router.navigate(['/productos']), 1000);
+        setTimeout(() => this.router.navigate(['/clientes']), 1000);  // ← REEMPLAZAR
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar' });
@@ -1061,51 +1641,49 @@ export class ProductoForm implements OnInit {
     });
   }
 
-  cancel(): void { this.router.navigate(['/productos']); }
+  cancel(): void { this.router.navigate(['/clientes']); }  // ← REEMPLAZAR
 }
 ```
-</details>
 
-<details>
-<summary>📄 producto-form.html (click para ver)</summary>
+#### cliente-form.component.html
 
 ```html
 <div class="max-w-2xl mx-auto p-6">
   <div class="bg-white rounded-lg shadow-lg p-8">
-    <h2 class="text-2xl font-bold mb-6">{{ isEdit ? 'Editar' : 'Nuevo' }} Producto</h2>
+    <h2 class="text-2xl font-bold mb-6">{{ isEdit ? 'Editar' : 'Nuevo' }} Cliente</h2>
 
     <form [formGroup]="form" (ngSubmit)="submit()">
       <div class="flex flex-col gap-4">
         <!-- Nombre -->
         <div>
           <label class="block font-semibold mb-1">Nombre *</label>
-          <input pInputText formControlName="nombre" class="w-full" />
-          <small class="text-red-500" *ngIf="form.get('nombre')?.invalid && form.get('nombre')?.touched">Nombre requerido (mín. 2 caracteres)</small>
+          <input pInputText formControlName="name" class="w-full" />
+          <small class="text-red-500" *ngIf="form.get('name')?.invalid && form.get('name')?.touched">Nombre requerido (mín. 2 caracteres)</small>
         </div>
 
-        <!-- Descripción -->
+        <!-- Email -->
         <div>
-          <label class="block font-semibold mb-1">Descripción</label>
-          <input pInputText formControlName="descripcion" class="w-full" />
+          <label class="block font-semibold mb-1">Email *</label>
+          <input pInputText formControlName="email" class="w-full" />
+          <small class="text-red-500" *ngIf="form.get('email')?.invalid && form.get('email')?.touched">Email válido requerido</small>
         </div>
 
-        <!-- Precio y Cantidad -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block font-semibold mb-1">Precio *</label>
-            <p-inputNumber formControlName="precio" mode="currency" currency="COP" locale="es-CO" class="w-full" />
-            <small class="text-red-500" *ngIf="form.get('precio')?.invalid && form.get('precio')?.touched">Precio requerido (mín. 1)</small>
-          </div>
-          <div>
-            <label class="block font-semibold mb-1">Cantidad *</label>
-            <p-inputNumber formControlName="cantidad" [min]="0" class="w-full" />
-          </div>
+        <!-- Teléfono -->
+        <div>
+          <label class="block font-semibold mb-1">Teléfono</label>
+          <input pInputText formControlName="phone" class="w-full" />
+        </div>
+
+        <!-- Dirección -->
+        <div>
+          <label class="block font-semibold mb-1">Dirección</label>
+          <textarea pInputTextarea formControlName="address" class="w-full" rows="3"></textarea>
         </div>
 
         <!-- Estado -->
         <div>
           <label class="block font-semibold mb-1">Estado</label>
-          <p-select formControlName="estado" [options]="[{label:'Activo',value:'ACTIVO'},{label:'Inactivo',value:'INACTIVO'}]" class="w-full"></p-select>
+          <p-select formControlName="status" [options]="[{label:'Activo',value:'ACTIVE'},{label:'Inactivo',value:'INACTIVE'}]" class="w-full"></p-select>
         </div>
       </div>
 
@@ -1118,198 +1696,185 @@ export class ProductoForm implements OnInit {
 </div>
 <p-toast></p-toast>
 ```
-</details>
 
-### 8.3 Verificar que el CRUD funciona
+**🔴 Cuando cambie la entidad, cambia en el HTML:**
+- "Nuevo Cliente" / "Editar Cliente" → nombre de tu entidad
+- Los campos del formulario → los campos de tu entidad
+- `formControlName="..."` → los nombres de los campos
+- Las validaciones y tipos de campo según la entidad
+
+### 9.5 Verificar que el CRUD funciona
 
 ```bash
 cd frontend
 ng serve
 ```
 
-Abrir `http://localhost:4200/productos`
+Abrir `http://localhost:4200/clientes`
 
-✅ **FASE 8 COMPLETADA** cuando puedas:
-- ☐ Ver la lista de productos (desde la BD)
-- ☐ Crear un nuevo producto
-- ☐ Editar un producto existente
-- ☐ Eliminar un producto
+Asegúrate de que el backend esté corriendo en otra terminal:
+
+```bash
+cd backend
+npm run dev
+```
+
+✅ **FASE 9 COMPLETADA** cuando puedas:
+- ☐ Ver la lista de clientes (desde la BD)
+- ☐ Crear un nuevo cliente
+- ☐ Editar un cliente existente
+- ☐ Eliminar un cliente
 
 ---
 
-## FASE 9 — CONEXIÓN TOTAL
+## FASE 10 — CONEXIÓN TOTAL Y CHECKLIST
 
 ### Diagrama del flujo completo
 
 ```
-┌─────────────┐      HTTP      ┌──────────┐     SQL     ┌──────────────┐
-│   ANGULAR   │ ──────────────▶ │  NODE.JS │ ──────────▶ │    MYSQL     │
-│  Frontend   │ ◀────────────── │  Express │ ◀────────── │  Base de     │
-│  :4200      │     JSON        │  :3000   │   Datos     │  Datos       │
-└─────────────┘                 └──────────┘             └──────────────┘
+┌─────────────┐      HTTP      ┌──────────┐     Sequelize    ┌──────────────┐
+│   ANGULAR   │ ──────────────▶ │  NODE.JS │ ───────────────▶ │    MYSQL     │
+│  Frontend   │ ◀────────────── │  Express │ ◀─────────────── │  Base de     │
+│  :4200      │     JSON        │  :4000   │     ORM          │  Datos       │
+└─────────────┘                 └──────────┘                  └──────────────┘
 ```
 
 ### Cómo se comunican:
 
 ```
-1. Angular (producto-list) hace GET a http://localhost:3000/api/productos
+1. Angular (cliente-list) hace GET a http://localhost:4000/api/clientes
 2. Node.js recibe la petición y la ruta la dirige al controlador
-3. El controlador llama al modelo que ejecuta: SELECT * FROM productos
-4. MySQL devuelve los datos → Node.js los envía como JSON → Angular los muestra
+3. El controlador llama al modelo Sequelize: Cliente.findAll()
+4. Sequelize ejecuta: SELECT * FROM clientes
+5. MySQL devuelve los datos → Node.js los envía como JSON → Angular los muestra
 ```
 
-### Checklist para la conexión
+### ¿Qué debe estar corriendo?
 
-| Componente | Debe estar corriendo en |
-|-----------|------------------------|
-| **MySQL** | Servicio de Windows (MySQL80) o XAMPP |
-| **Backend** | Terminal 1: `cd backend && npm run dev` → http://localhost:3000 |
-| **Frontend** | Terminal 2: `cd frontend && ng serve` → http://localhost:4200 |
+| Componente | Comando | Puerto |
+|-----------|---------|--------|
+| **MySQL** | Servicio de Windows (MySQL80) o XAMPP | 3306 |
+| **Backend** | `cd backend && npm run dev` | 4000 |
+| **Frontend** | `cd frontend && ng serve` | 4200 |
 
 **Para probar la conexión completa:**
 1. Abre `http://localhost:4200`
-2. Debe cargar la lista de productos desde la BD
-3. Crea un nuevo producto → debe aparecer en la BD
+2. Debe cargar la lista de clientes desde la BD
+3. Crea un nuevo cliente → debe aparecer en la BD
 4. Edítalo → los cambios deben persistir
 5. Elimínalo → debe desaparecer de la lista
 
-**Error común:** "NullInjectorError: No provider for HttpClient"
-```
-Solución: Agregar provideHttpClient() en app.config.ts (ver Fase 7.4)
-```
-
 **Error común de CORS:** Bloqueo de petición desde Angular
 ```
-Solución: Verificar que backend/src/app.js tenga:
-  app.use(cors({ origin: 'http://localhost:4200' }));
+Solución: Verificar que backend/src/config/index.ts tenga app.use(cors()) (sin restricciones)
+          Para desarrollo, cors() sin opciones permite cualquier origen.
 ```
 
-✅ **FASE 9 COMPLETADA** cuando el frontend Angular se comunique exitosamente con el backend y la BD.
+**Error común:** "No se pudieron cargar los datos"
+```
+Solución: Verificar que el backend esté corriendo en :4000 y MySQL esté activo
+          Abrir http://localhost:4000/api/clientes en el navegador para verificar la API
+```
 
----
-
-## FASE 10 — CHECKLIST DEL PARCIAL
+### ✅ CHECKLIST DEL PARCIAL
 
 Marca cada casilla cuando lo hayas verificado:
 
-### Backend
-- ☐ **Backend inicia**: `npm run dev` funciona sin errores
-- ☐ **GET /api/productos** devuelve `{ "data": [...] }`
-- ☐ **POST /api/productos** crea registros correctamente
-- ☐ **PUT /api/productos/:id** actualiza registros
-- ☐ **DELETE /api/productos/:id** elimina registros
+#### Backend
+- ☐ **Backend inicia**: `npm run dev` compila TypeScript y arranca sin errores
+- ☐ **GET /api/clientes** devuelve `{ "data": [...] }`
+- ☐ **POST /api/clientes** crea registros correctamente
+- ☐ **PUT /api/clientes/:id** actualiza registros
+- ☐ **DELETE /api/clientes/:id** elimina registros
+- ☐ **Seed funciona**: `npm run seed` inserta 20 registros
 
-### Base de Datos
+#### Base de Datos
 - ☐ **MySQL está corriendo** (servicio activo)
 - ☐ **La base de datos existe** con el nombre correcto
-- ☐ **La tabla existe** con las columnas correctas
+- ☐ **La tabla clientes existe** con las columnas correctas
+- ☐ **Hay registros** (al menos 1, idealmente 20 del seed)
 
-### Frontend Angular
+#### Frontend Angular
 - ☐ **Angular compila** sin errores (`ng serve`)
 - ☐ **Listar**: La tabla muestra los registros de la BD
 - ☐ **Crear**: El formulario envía datos al backend
 - ☐ **Editar**: El formulario carga datos existentes y los actualiza
 - ☐ **Eliminar**: El diálogo de confirmación funciona y elimina
 
-### Conexión
-- ☐ **Frontend ↔ Backend**: Angular se conecta a Node.js
-- ☐ **Backend ↔ BD**: Node.js se conecta a MySQL
+#### Conexión
+- ☐ **Frontend ↔ Backend**: Angular se conecta a Node.js en :4000
+- ☐ **Backend ↔ BD**: Node.js se conecta a MySQL en :3306
 - ☐ **CRUD completo**: Las 4 operaciones funcionan de principio a fin
 - ☐ **Sin errores en consola**: F12 → Console, no muestra errores rojos
 
-### 📋 Antes de entregar
-- ☐ El proyecto está en una carpeta organizada
+#### 📋 Antes de entregar
+- ☐ El proyecto está en una carpeta organizada (`app-parcial/backend/` y `app-parcial/frontend/`)
 - ☐ El `backend/.env` NO está incluido (está en `.gitignore`)
 - ☐ El `node_modules/` NO está incluido
+- ☐ El `backend/dist/` NO está incluido
 - ☐ Backend y frontend inician con los comandos correctos
 - ☐ **¡Respaldaste tu proyecto!** (copia en USB / Google Drive / GitHub)
 
 ---
 
-## ANEXO A: Datos de prueba con Faker (opcional)
-
-Si quieres generar datos de prueba automáticamente, crea `backend/src/faker/seed.js`:
-
-Primero instala faker:
-```bash
-npm install @faker-js/faker
-```
-
-Luego crea el archivo `backend/src/faker/seed.js` (← REEMPLAZAR campos):
-
-```javascript
-const pool = require('../config/db');
-const { faker } = require('@faker-js/faker');
-require('dotenv').config();
-
-async function seed() {
-  const tableName = 'productos'; // ← REEMPLAZAR
-
-  console.log(`Insertando datos de prueba en ${tableName}...`);
-
-  for (let i = 0; i < 20; i++) {
-    await pool.query(`INSERT INTO ${tableName} SET ?`, {
-      nombre: faker.commerce.productName(),
-      descripcion: faker.commerce.productDescription(),
-      precio: parseFloat(faker.commerce.price({ min: 1000, max: 5000000 })),
-      cantidad: faker.number.int({ min: 1, max: 100 }),
-      estado: faker.helpers.arrayElement(['ACTIVO', 'INACTIVO'])
-    });
-  }
-
-  console.log('✅ Datos de prueba insertados correctamente');
-  process.exit(0);
-}
-
-seed().catch(err => {
-  console.error('❌ Error:', err);
-  process.exit(1);
-});
-```
-
-Agrega este script al `package.json`:
-```json
-"seed": "node src/faker/seed.js"
-```
-
-Ejecutar:
-```bash
-npm run seed
-```
-
----
-
-## ANEXO B: Guía rápida de REEMPLAZO
+## ANEXO A: Guía rápida de REEMPLAZO
 
 Cuando el docente te dé la entidad del parcial, sigue esta tabla:
 
 | Archivo | ¿Qué reemplazar? |
 |---------|-----------------|
-| `.env` → `DB_NAME` | Nombre de la base de datos |
-| `backend/src/config/db.js` | database en pool |
-| `backend/src/models/producto.model.js` | tableName, allowedFields, nombre del objeto |
-| `backend/src/controllers/producto.controller.js` | imports, nombre del objeto, nombres de campos |
-| `backend/src/routes/producto.routes.js` | nombre del archivo controlador, ruta `/productos` |
-| `backend/src/app.js` | import de rutas, app.use |
-| `frontend/src/app/models/producto.ts` | interface, campos |
-| `frontend/src/app/services/producto.service.ts` | interface, apiUrl |
-| `frontend/src/app/app.routes.ts` | path `/productos` |
-| `frontend/src/app/components/producto/` | TODA la carpeta (nombre y referencias) |
+| `backend/.env` → `MYSQL_NAME` | Nombre de la base de datos |
+| `backend/src/database/db.ts` → `database` | Nombre de la BD en el config |
+| `backend/src/models/Cliente.ts` | class, interface, tableName, campos |
+| `backend/src/controllers/cliente.controller.ts` | Nombre del import, nombre del controller, campos |
+| `backend/src/routes/cliente.routes.ts` | Nombre del controlador importado |
+| `backend/src/config/index.ts` → `import` y `this.app.use` | Ruta de import y ruta base |
+| `backend/src/faker/seed.ts` | Modelo importado, campos a insertar |
+| `backend/src/http/clientes.http` | URLs de los endpoints |
+| `frontend/src/app/models/cliente.ts` | Interface, campos |
+| `frontend/src/app/services/cliente.service.ts` | Interface, apiUrl |
+| `frontend/src/app/app.routes.ts` | Paths `/clientes`, componentes |
+| `frontend/src/app/components/cliente/` | TODA la carpeta (nombre y referencias) |
 
 ---
 
-## ANEXO C: Errores comunes y soluciones
+## ANEXO B: Errores comunes y soluciones rápidas
 
 | Error | Causa | Solución |
 |-------|-------|----------|
 | `ECONNREFUSED :3306` | MySQL no está corriendo | Iniciar MySQL o XAMPP |
-| `ER_BAD_DB_ERROR` | BD no existe | Ejecutar CREATE DATABASE |
-| `ER_TABLE_NOT_FOUND` | Tabla no existe | Ejecutar CREATE TABLE |
+| `ER_BAD_DB_ERROR` | BD no existe | Ejecutar `CREATE DATABASE nombre` |
 | `Cannot find module` | Dependencia no instalada | Ejecutar `npm install` |
 | `NullInjectorError` | Falta provideHttpClient | Agregar a app.config.ts |
-| `CORS error` | Backend no permite Angular | Verificar cors() en app.js |
+| `CORS error (bloqueo)` | Backend sin cors | Verificar cors() en config/index.ts |
 | `ng no se reconoce` | Angular CLI no instalado | `npm install -g @angular/cli` |
+| `TypeScript error en import` | Ruta incorrecta | Usar `../` correctamente según estructura |
+| `SequelizeUniqueConstraintError` | Email duplicado | Usar un email diferente |
+| `Column not found` | Tabla existe pero sin timestamps | `DROP TABLE clientes` y reiniciar servidor |
+| `Cannot set headers after sent` | Dos respuestas en un método | Agregar `return` después de `res.status().json()` |
+
+---
+
+## ANEXO C: Comandos rápidos
+
+### Backend (una sola terminal)
+```bash
+cd app-parcial/backend
+npm run dev        # Iniciar servidor
+npm run seed       # Poblar con datos de prueba
+npm run build      # Compilar a JavaScript
+```
+
+### Frontend (otra terminal)
+```bash
+cd app-parcial/frontend
+ng serve           # Iniciar Angular
+```
 
 ---
 
 > ⚡ **Tip final:** Si en algún momento algo no funciona, revisa la consola del navegador (F12) y la terminal del backend. El error siempre dice exactamente qué está mal. Lee el mensaje completo antes de buscar ayuda.
+>
+> Esta guía es una versión corregida y 100% funcional basada en la arquitectura del docente:
+> **TypeScript + Express + Sequelize + MySQL + Angular + PrimeNG + TailwindCSS**.
+> Sin JWT, sin roles, sin tablas secundarias — solo el CRUD de una entidad.
